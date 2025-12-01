@@ -407,6 +407,11 @@
             }
 
             function parseCSV(csvText) {
+                // 1. 移除可能的 Byte Order Mark (BOM)，解決從 Google Sheets 下載後第一個標題亂碼問題
+                if (csvText.charCodeAt(0) === 0xFEFF) {
+                    csvText = csvText.slice(1);
+                }
+
                 const lines = csvText.trim().split('\n');
                 if (lines.length < 2) {
                     showMessage('CSV 格式錯誤或內容空白。', 'error');
@@ -417,21 +422,25 @@
                 const headers = parseCSVLine(lines[0]).map(h => h.trim());
                 const dataLines = lines.slice(1);
                 
-                // 嘗試匹配常見的 Google 表單欄位名稱 (中/英文)
-                const findIndex = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
+                // 2. 強化 findIndex 邏輯：將 header 和 keyword 進行「去空格+轉小寫」正規化後再進行包含檢查，提高容錯率
+                const findIndex = (keywords) => headers.findIndex(h => {
+                    const normalizedHeader = h.replace(/\s/g, '').toLowerCase(); // 移除所有空格
+                    return keywords.some(k => normalizedHeader.includes(k.replace(/\s/g, '').toLowerCase()));
+                });
 
-                // 根據使用者提供的 CSV 標題微調關鍵字列表，增強匹配能力
+                // 根據使用者提供的 CSV 標題調整關鍵字列表
                 const itemNameIndex = findIndex(['購買物', '項目名稱', 'Item Name', '連結', 'Item']);
                 const friendNameIndex = findIndex(['填寫人', '朋友名稱', 'Friend Name', '姓名', 'Name']);
                 const quantityIndex = findIndex(['購買量', '數量', 'Quantity']);
                 const categoryIndex = findIndex(['類型', 'Category']); 
-                const priceIndex = findIndex(['預計金額(JPY)', 'Estimated Price', '金額']); // 加入 '金額' 關鍵字
+                const priceIndex = findIndex(['預計金額(JPY)', 'Estimated Price', '金額']); 
                 
-                // 針對 '參考連結 或 圖片' 這個複合標題，新增其完整名稱的匹配，以提高準確性
+                // 針對 '參考連結 或 圖片' 這個複合標題，進行正規化匹配
                 const linkIndex = findIndex(['參考連結 或 圖片', '參考連結', 'Reference Link', '連結', 'URL']); 
-                // 忽略最後的 '參考圖片' 欄位，因為它通常是 Google Sheets 檔案上傳的 ID，與我們的 Base64 縮圖邏輯不相干
                 
                 if (itemNameIndex === -1 || friendNameIndex === -1 || quantityIndex === -1 || categoryIndex === -1 || priceIndex === -1) {
+                    // 如果仍然無法識別，打印更詳細的調試信息到控制台，幫助用戶手動檢查標題
+                    console.error('Failed to identify required columns. Detected headers:', headers);
                     showMessage('CSV 標題行無法識別。請確認包含: 購買物, 填寫人, 購買量, 類型, 預計金額(JPY)。', 'error');
                     return;
                 }
