@@ -63,6 +63,27 @@
                 max-width: 480px; /* Constrain width on larger screens */
             }
         }
+        
+        /* 6. Fullscreen Modal Style */
+        .fullscreen-modal {
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none; /* 預設不擋滑鼠事件 */
+            opacity: 0;
+        }
+        .fullscreen-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        /* 7. Total Display Style */
+        .total-box {
+            background-color: #3a4759; /* 較淺的深色 */
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -74,6 +95,22 @@
             <h1 class="text-4xl font-extrabold accent-text">旅日代購清單</h1>
             <p class="text-sm text-gray-400 mt-1">Friends' Vibe List · 一鍵匯入與管理</p>
         </header>
+        
+        <!-- 總金額顯示區 (已更新為 JPY 和 HKD) -->
+        <div class="total-box">
+            <p class="text-sm text-gray-300 font-medium mb-2">未購項目預計總金額</p>
+            <div class="flex justify-around items-end">
+                <div>
+                    <span class="text-xs text-gray-400">JPY</span>
+                    <p id="totalAmountJPY" class="text-3xl font-bold text-white leading-tight">0</p>
+                </div>
+                <div class="border-l border-gray-600 h-10 mx-2"></div>
+                <div>
+                    <span class="text-xs text-gray-400">HKD (~0.06)</span>
+                    <p id="totalAmountHKD" class="text-3xl font-bold text-accent-text leading-tight">0.00</p>
+                </div>
+            </div>
+        </div>
 
         <!-- 匯入與管理區塊 -->
         <section class="mb-8 p-5 rounded-xl card-bg shadow-2xl">
@@ -169,7 +206,8 @@
                     
                     <!-- 縮圖預覽 -->
                     <div id="imagePreviewContainer" class="mt-3 hidden">
-                        <img id="imageThumbnail" class="w-20 h-20 object-cover rounded-lg border-2 border-accent-bg" alt="Thumbnail Preview">
+                        <!-- 圖片點擊後觸發 openFullImageModal -->
+                        <img id="imageThumbnail" class="w-20 h-20 object-cover rounded-lg border-2 border-accent-bg cursor-pointer transition-opacity hover:opacity-80" alt="Thumbnail Preview">
                         <!-- Canvas is used for compression, not display -->
                     </div>
                 </div>
@@ -212,37 +250,51 @@
             </div>
         </div>
     </div>
+    
+    <!-- 全屏圖片檢視 Modal (新增) -->
+    <div id="fullImageModal" class="fixed inset-0 bg-black bg-opacity-95 flex flex-col items-center justify-center p-4 z-[100] fullscreen-modal" onclick="closeFullImageModal()">
+        <button onclick="closeFullImageModal(event)" class="absolute top-4 right-4 text-white text-3xl z-[110] hover:text-gray-300 transition">
+            <i class="fas fa-times"></i>
+        </button>
+        <img id="fullImageDisplay" src="" alt="Full Image" class="max-w-full max-h-full object-contain cursor-pointer" onclick="event.stopPropagation()">
+        <p id="fullImageHint" class="absolute bottom-4 text-sm text-gray-400">點擊任意處關閉</p>
+    </div>
+
 
     <!-- JavaScript 邏輯 -->
     <script>
-        // --- Image Resizing and Conversion Utility ---
-        
+        // --- 匯率與圖片壓縮常量定義 ---
+        const THUMB_MAX_SIZE = 120; // 縮圖最大邊長 (用於清單和編輯預覽)
+        const FULL_IMAGE_MAX_SIZE = 600; // 全屏檢視最大邊長 (提供原圖壓縮版)
+        const THUMB_QUALITY = 0.6; // 縮圖壓縮品質 (低)
+        const FULL_IMAGE_QUALITY = 0.8; // 全屏圖壓縮品質 (中高)
+        const HKD_RATE = 0.06; // JPY 兌換 HKD 匯率 (JPY * 0.06)
+
         /**
-         * 壓縮圖片並轉換為 Base64 縮圖。
+         * 壓縮圖片並轉換為 Base64 數據。
          * @param {File} file - 原始圖片檔案。
-         * @returns {Promise<string>} Base64 格式的縮圖數據。
+         * @param {number} maxSize - 圖片最大邊長。
+         * @param {number} quality - JPEG 壓縮品質 (0.0 to 1.0)。
+         * @returns {Promise<string>} Base64 格式的圖片數據。
          */
-        function resizeImageAndConvertToBase64(file) {
+        function resizeImageAndConvertToBase64(file, maxSize, quality) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     const img = new Image();
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const MAX_SIZE = 120; // 縮圖最大邊長 (例如 120x120)
                         let width = img.width;
                         let height = img.height;
 
                         // 計算縮放比例
-                        if (width > height) {
-                            if (width > MAX_SIZE) {
-                                height *= MAX_SIZE / width;
-                                width = MAX_SIZE;
-                            }
-                        } else {
-                            if (height > MAX_SIZE) {
-                                width *= MAX_SIZE / height;
-                                height = MAX_SIZE;
+                        if (width > maxSize || height > maxSize) {
+                             if (width > height) {
+                                height *= maxSize / width;
+                                width = maxSize;
+                            } else {
+                                width *= maxSize / height;
+                                height = maxSize;
                             }
                         }
                         
@@ -250,10 +302,13 @@
                         canvas.height = height;
                         
                         const ctx = canvas.getContext('2d');
+                        // 確保背景為白色，防止透明區域變黑
+                        ctx.fillStyle = '#1A1A2E'; // 使用主題背景色作為填充
+                        ctx.fillRect(0, 0, width, height);
                         ctx.drawImage(img, 0, 0, width, height);
 
-                        // 轉換為 Base64 (使用 JPEG 格式和 0.7 壓縮率以節省 localStorage 空間)
-                        const base64 = canvas.toDataURL('image/jpeg', 0.7);
+                        // 轉換為 Base64 
+                        const base64 = canvas.toDataURL('image/jpeg', quality);
                         resolve(base64);
                     };
                     img.onerror = () => reject('Image loading error');
@@ -276,6 +331,10 @@
             const messageBox = document.getElementById('messageBox');
             const messageText = document.getElementById('messageText');
             const messageIcon = document.getElementById('messageIcon');
+            
+            // 總金額顯示元素
+            const totalAmountDisplayJPY = document.getElementById('totalAmountJPY');
+            const totalAmountDisplayHKD = document.getElementById('totalAmountHKD'); 
 
             // Confirm Modal Elements
             const confirmModal = document.getElementById('confirmModal');
@@ -283,6 +342,10 @@
             const confirmMessage = document.getElementById('confirmMessage');
             const confirmConfirmBtn = document.getElementById('confirmConfirmBtn');
             const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+            
+            // Full Image Modal Elements
+            const fullImageModal = document.getElementById('fullImageModal');
+            const fullImageDisplay = document.getElementById('fullImageDisplay');
 
             // Image Edit Elements
             const imageUpload = document.getElementById('imageUpload');
@@ -293,6 +356,32 @@
             let items = loadItems();
             let currentEditIndex = null;
             let confirmResolver = null; // Promise resolver for confirmModal
+
+            // --- Full Image Modal Functions ---
+            
+            // 點擊清單中的圖片會調用此函數，使用 fullBase64 
+            window.openFullImageModal = (base64Url, event) => {
+                if(event) event.stopPropagation();
+                fullImageDisplay.src = base64Url;
+                fullImageModal.classList.add('active');
+                document.body.style.overflow = 'hidden'; // 禁用背景滾動
+            }
+
+            window.closeFullImageModal = (event) => {
+                if(event) event.stopPropagation();
+                fullImageModal.classList.remove('active');
+                document.body.style.overflow = ''; // 恢復背景滾動
+            }
+
+            // 確保編輯 Modal 內的預覽縮圖也能點擊放大
+            imageThumbnail.addEventListener('click', (event) => {
+                // 點擊縮圖時，應該用暫存的 fullBase64 數據來放大
+                const fullBase64 = imageThumbnail.dataset.fullBase64;
+                if (fullBase64) {
+                    openFullImageModal(fullBase64, event);
+                }
+            });
+
 
             // --- Utility Functions ---
 
@@ -354,6 +443,30 @@
                     confirmResolver = null;
                 }
             });
+            
+            /**
+             * 計算所有未購買項目的總金額並更新顯示。
+             */
+            function calculateAndDisplayTotal() {
+                const totalJPY = items.reduce((sum, item) => {
+                    if (!item.purchased) {
+                        // 確保 item.estimatedPrice 和 item.quantity 是有效數字
+                        const price = parseFloat(item.estimatedPrice) || 0;
+                        const qty = parseInt(item.quantity) || 0;
+                        return sum + (price * qty);
+                    }
+                    return sum;
+                }, 0);
+                
+                const totalHKD = totalJPY * HKD_RATE;
+
+                // 格式化總金額
+                totalAmountDisplayJPY.textContent = totalJPY.toLocaleString('en-US', { maximumFractionDigits: 0 }); 
+                totalAmountDisplayHKD.textContent = totalHKD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); // HKD 顯示兩位小數
+                
+                // 更新項目計數
+                itemCountSpan.textContent = items.length;
+            }
 
 
             // --- Data Persistence ---
@@ -361,7 +474,16 @@
             function loadItems() {
                 try {
                     const storedItems = localStorage.getItem('japanVibeList');
-                    return storedItems ? JSON.parse(storedItems) : [];
+                    // 檢查舊數據結構並進行遷移
+                    const loadedItems = storedItems ? JSON.parse(storedItems) : [];
+                    return loadedItems.map(item => ({
+                        ...item,
+                        thumbBase64: item.thumbBase64 || item.imageBase64 || '',
+                        fullBase64: item.fullBase64 || item.imageBase64 || '',
+                        timestamp: item.timestamp || item.id, // 新增 timestamp 處理，舊數據使用 id
+                        // 移除舊欄位
+                        imageBase64: undefined 
+                    }));
                 } catch (e) {
                     console.error("Error loading items from localStorage:", e);
                     return [];
@@ -371,7 +493,8 @@
             function saveItems() {
                 try {
                     localStorage.setItem('japanVibeList', JSON.stringify(items));
-                    renderItems();
+                    renderItems(); // 儲存後重新渲染清單
+                    calculateAndDisplayTotal(); // 重新計算總金額
                 } catch (e) {
                     console.error("Error saving items to localStorage:", e);
                     showMessage('儲存資料失敗！', 'error');
@@ -407,7 +530,7 @@
             }
 
             function parseCSV(csvText) {
-                // 1. 移除可能的 Byte Order Mark (BOM)，解決從 Google Sheets 下載後第一個標題亂碼問題
+                // 1. 移除可能的 Byte Order Mark (BOM)
                 if (csvText.charCodeAt(0) === 0xFEFF) {
                     csvText = csvText.slice(1);
                 }
@@ -434,14 +557,12 @@
                 const quantityIndex = findIndex(['購買量', '數量', 'Quantity']);
                 const categoryIndex = findIndex(['類型', 'Category']); 
                 const priceIndex = findIndex(['預計金額(JPY)', 'Estimated Price', '金額']); 
-                
-                // 針對 '參考連結 或 圖片' 這個複合標題，進行正規化匹配
                 const linkIndex = findIndex(['參考連結 或 圖片', '參考連結', 'Reference Link', '連結', 'URL']); 
+                const timestampIndex = findIndex(['時間戳記', 'Timestamp']); // 新增時間戳記索引
                 
-                if (itemNameIndex === -1 || friendNameIndex === -1 || quantityIndex === -1 || categoryIndex === -1 || priceIndex === -1) {
-                    // 如果仍然無法識別，打印更詳細的調試信息到控制台，幫助用戶手動檢查標題
+                if (itemNameIndex === -1 || friendNameIndex === -1 || quantityIndex === -1 || categoryIndex === -1 || priceIndex === -1 || timestampIndex === -1) {
                     console.error('Failed to identify required columns. Detected headers:', headers);
-                    showMessage('CSV 標題行無法識別。請確認包含: 購買物, 填寫人, 購買量, 類型, 預計金額(JPY)。', 'error');
+                    showMessage('CSV 標題行無法識別。請確認包含: 時間戳記, 購買物, 填寫人, 購買量, 類型, 預計金額(JPY)。', 'error');
                     return;
                 }
 
@@ -451,11 +572,11 @@
                 dataLines.forEach(line => {
                     const cols = parseCSVLine(line);
                     
-                    if (cols.length > Math.max(itemNameIndex, friendNameIndex, quantityIndex, categoryIndex, priceIndex, linkIndex || 0)) {
+                    if (cols.length > Math.max(itemNameIndex, friendNameIndex, quantityIndex, categoryIndex, priceIndex, linkIndex || 0, timestampIndex)) {
                         const name = cols[itemNameIndex].trim();
                         const friend = cols[friendNameIndex].trim();
                         const quantity = parseInt(cols[quantityIndex].trim());
-                        const category = cols[categoryIndex].trim() || '其他'; // Use '其他' as default
+                        const category = cols[categoryIndex].trim() || '其他'; 
                         
                         // 處理金額：移除千位符號 (,) 並解析
                         const priceStr = cols[priceIndex].trim().replace(/,/g, '');
@@ -463,18 +584,24 @@
 
                         const referenceLink = linkIndex !== -1 ? cols[linkIndex].trim() : ''; 
                         
+                        // 處理時間戳記並轉換為 Unix Time (毫秒)
+                        const timestampStr = cols[timestampIndex].trim();
+                        const timestamp = Date.parse(timestampStr) || Date.now(); // 轉換失敗則使用當前時間
+                        
                         const key = `${name}-${friend}`;
 
                         if (name && friend && !isNaN(quantity) && quantity > 0 && !existingItems.has(key)) {
                             items.push({
                                 id: Date.now() + Math.random(), 
+                                timestamp: timestamp, // 儲存時間戳記
                                 name: name,
                                 friend: friend,
                                 quantity: quantity,
-                                category: category, // Added
-                                estimatedPrice: estimatedPrice, // Added
-                                referenceLink: referenceLink, // Added
-                                imageBase64: '', // New field for uploaded thumbnail
+                                category: category, 
+                                estimatedPrice: estimatedPrice, 
+                                referenceLink: referenceLink, 
+                                thumbBase64: '', 
+                                fullBase64: '',  
                                 purchased: false
                             });
                             existingItems.add(key);
@@ -516,40 +643,70 @@
 
             function renderItems() {
                 itemList.innerHTML = '';
-                itemCountSpan.textContent = items.length;
                 
+                // 排序邏輯調整：
+                // 1. Primary Sort: purchased (未購在前 - false:0, true:1)
+                // 2. Secondary Sort: timestamp (最新在前 - descending)
+                items.sort((a, b) => {
+                    if (a.purchased !== b.purchased) {
+                        return a.purchased - b.purchased; // false (0) comes before true (1)
+                    }
+                    return b.timestamp - a.timestamp; // Newest first
+                });
+
                 if (items.length === 0) {
                     emptyListMessage.classList.remove('hidden');
                 } else {
                     emptyListMessage.classList.add('hidden');
                 }
 
-                // 排序：未購 (false) 在前，已購 (true) 在後。未購按 ID (新舊) 排序。
-                items.sort((a, b) => (a.purchased === b.purchased) ? b.id - a.id : a.purchased - b.purchased);
-
                 items.forEach((item, index) => {
+                    const hasImage = item.thumbBase64 || item.fullBase64;
                     const itemDiv = document.createElement('div');
+                    
+                    // 計算單項總金額
+                    const itemTotalJPY = item.estimatedPrice * item.quantity;
+                    const itemTotalHKD = itemTotalJPY * HKD_RATE; // JPY * 0.06
+                    
                     // 根據是否有 Base64 圖片調整佈局
-                    const itemLayoutClass = item.imageBase64 ? 'grid grid-cols-5 gap-3' : 'flex justify-between items-center';
+                    const itemLayoutClass = hasImage ? 'grid grid-cols-5 gap-3' : 'flex justify-between items-center';
                     
                     itemDiv.className = `p-4 rounded-xl shadow-lg transition duration-300 card-bg border-l-4 border-gray-600 ${item.purchased ? 'item-purchased success-border' : 'border-accent-bg'} ${itemLayoutClass}`;
                     itemDiv.dataset.index = index;
 
+                    // 點擊事件：如果存在圖片，讓圖片區域可點擊
+                    const imageElement = hasImage ? `
+                        <div class="col-span-1 ml-auto flex-shrink-0 w-12 h-12 overflow-hidden rounded-md border-2 border-gray-600 cursor-pointer" onclick="openFullImageModal('${item.fullBase64 || item.thumbBase64}', event)">
+                            <img src="${item.thumbBase64 || item.fullBase64}" alt="Thumbnail" class="w-full h-full object-cover">
+                        </div>
+                    ` : '';
+                    
+                    // 顯示時間戳記 (簡化顯示)
+                    const date = item.timestamp ? new Date(item.timestamp).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) : 'N/A';
+
+
                     const content = `
                         <!-- 左側內容 (佔 4/5 欄或 flex-grow) -->
-                        <div class="${item.imageBase64 ? 'col-span-4' : 'flex-grow min-w-0 pr-3'}">
+                        <div class="${hasImage ? 'col-span-4' : 'flex-grow min-w-0 pr-3'}">
                             <p class="text-lg font-bold item-name whitespace-normal break-words">${item.name}</p>
                             
                             <p class="text-sm text-gray-400 mt-1 space-x-2">
+                                <span class="text-xs text-gray-500"><i class="fas fa-clock mr-1"></i> ${date}</span>
+                                <span class="mx-1 text-gray-600">|</span> 
                                 <span class="text-base text-gray-300"><i class="fas fa-user-tag mr-1"></i> ${item.friend} </span>
                                 <span class="mx-1 text-gray-600">|</span> 
                                 <span class="text-base text-gray-300"><i class="fas fa-hashtag mr-1"></i> ${item.quantity}</span>
                             </p>
 
-                            <!-- 類型與價格 -->
+                            <!-- 類型與價格 (已新增 HKD 顯示) -->
                             <p class="text-xs text-gray-400 mt-2 flex items-center flex-wrap">
                                 <span class="font-semibold text-gray-300 mr-3"><i class="fas fa-bookmark mr-1"></i> ${item.category || 'N/A'}</span>
-                                <span class="font-semibold text-accent-text mr-3"><i class="fas fa-yen-sign mr-1"></i> ${(item.estimatedPrice || 0).toLocaleString('en-US')} JPY</span>
+                                <span class="font-semibold text-accent-text mr-3">
+                                    <i class="fas fa-yen-sign mr-1"></i> ${itemTotalJPY.toLocaleString('en-US', { maximumFractionDigits: 0 })} JPY
+                                </span>
+                                <span class="font-semibold text-gray-300">
+                                    <i class="fas fa-dollar-sign mr-1"></i> ${itemTotalHKD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} HKD
+                                </span>
                             </p>
 
                             <!-- 連結與圖片標記 -->
@@ -559,9 +716,9 @@
                                         <i class="fas fa-external-link-alt mr-1"></i> 連結
                                     </a>` : ''}
 
-                                ${item.imageBase64 ? `
+                                ${hasImage ? `
                                     <span class="text-green-400 font-medium inline-flex items-center">
-                                        <i class="fas fa-image mr-1"></i> 圖片已存
+                                        <i class="fas fa-image mr-1"></i> 圖片已存 (點擊縮圖放大)
                                     </span>` : ''}
                             </p>
                             
@@ -569,16 +726,12 @@
                         </div>
 
                         <!-- 縮圖 (佔 1/5 欄) -->
-                        ${item.imageBase64 ? `
-                            <div class="col-span-1 ml-auto flex-shrink-0 w-12 h-12 overflow-hidden rounded-md border-2 border-gray-600">
-                                <img src="${item.imageBase64}" alt="Thumbnail" class="w-full h-full object-cover">
-                            </div>
-                        ` : ''}
+                        ${imageElement}
 
                         <!-- 右側操作按鈕 (在 flex 佈局中放置最右邊，在 grid 佈局中放在下方) -->
-                        <div class="${item.imageBase64 ? 'col-span-5 pt-3 border-t border-gray-700 mt-3 flex justify-end' : 'flex flex-col space-y-2 ml-3 flex-shrink-0'}">
+                        <div class="${hasImage ? 'col-span-5 pt-3 border-t border-gray-700 mt-3 flex justify-end' : 'flex flex-col space-y-2 ml-3 flex-shrink-0'}">
                             <!-- 標記按鈕 (大) -->
-                            <button class="toggle-purchased-btn w-10 h-10 rounded-full flex items-center justify-center transition duration-200 shadow-md ${item.purchased ? 'bg-success-text hover:bg-green-700' : 'accent-bg hover:opacity-80'} ${item.imageBase64 ? 'mr-3' : ''}" 
+                            <button class="toggle-purchased-btn w-10 h-10 rounded-full flex items-center justify-center transition duration-200 shadow-md ${item.purchased ? 'bg-success-text hover:bg-green-700' : 'accent-bg hover:opacity-80'} ${hasImage ? 'mr-3' : ''}" 
                                 data-index="${index}" title="${item.purchased ? '標記為未購' : '標記為已購'}">
                                 <i class="fas ${item.purchased ? 'fa-undo' : 'fa-shopping-basket'} text-white text-base"></i>
                             </button>
@@ -642,12 +795,23 @@
                 const file = event.target.files[0];
                 if (file) {
                     try {
-                        const base64Data = await resizeImageAndConvertToBase64(file);
-                        imageThumbnail.src = base64Data;
+                        showMessage('正在處理圖片，請稍候...', 'info');
+                        
+                        // 1. 創建縮圖 (低品質，小尺寸)
+                        const thumbData = await resizeImageAndConvertToBase64(file, THUMB_MAX_SIZE, THUMB_QUALITY);
+                        
+                        // 2. 創建全屏圖 (較高品質，較大尺寸)
+                        const fullData = await resizeImageAndConvertToBase64(file, FULL_IMAGE_MAX_SIZE, FULL_IMAGE_QUALITY);
+
+                        // 更新預覽和暫存數據
+                        imageThumbnail.src = thumbData;
+                        imageThumbnail.dataset.thumbBase64 = thumbData; 
+                        imageThumbnail.dataset.fullBase64 = fullData; 
+                        
                         imagePreviewContainer.classList.remove('hidden');
                         removeImageBtn.classList.remove('hidden');
-                        // 暫存 Base64 數據到 dataset，等待 Modal 儲存
-                        imageThumbnail.dataset.base64 = base64Data; 
+                        
+                        showMessage('圖片上傳並壓縮成功！', 'success');
                     } catch (e) {
                         console.error("Image processing failed:", e);
                         showMessage('圖片處理失敗！', 'error');
@@ -657,7 +821,8 @@
 
             removeImageBtn.addEventListener('click', () => {
                 imageThumbnail.src = '';
-                imageThumbnail.dataset.base64 = ''; // 清除暫存
+                imageThumbnail.dataset.thumbBase64 = ''; // 清除縮圖暫存
+                imageThumbnail.dataset.fullBase64 = ''; // 清除全圖暫存
                 imagePreviewContainer.classList.add('hidden');
                 removeImageBtn.classList.add('hidden');
             });
@@ -680,18 +845,26 @@
                 document.getElementById('editEstimatedPrice').value = (item.estimatedPrice || 0).toLocaleString('en-US');
                 document.getElementById('editReferenceLink').value = item.referenceLink || '';
 
-                // Load Image
-                if (item.imageBase64) {
-                    imageThumbnail.src = item.imageBase64;
-                    imageThumbnail.dataset.base64 = item.imageBase64; // 載入時存入 dataset
+                // Load Image (使用 thumbBase64 進行預覽)
+                const thumbData = item.thumbBase64 || '';
+                const fullData = item.fullBase64 || '';
+
+                if (thumbData) {
+                    imageThumbnail.src = thumbData;
+                    imageThumbnail.dataset.thumbBase64 = thumbData; 
+                    imageThumbnail.dataset.fullBase64 = fullData; 
                     imagePreviewContainer.classList.remove('hidden');
                     removeImageBtn.classList.remove('hidden');
                 } else {
                     imageThumbnail.src = '';
-                    imageThumbnail.dataset.base64 = '';
+                    imageThumbnail.dataset.thumbBase64 = '';
+                    imageThumbnail.dataset.fullBase64 = '';
                     imagePreviewContainer.classList.add('hidden');
                     removeImageBtn.classList.add('hidden');
                 }
+                
+                // 重置 file input 避免重複觸發 change 事件
+                imageUpload.value = null; 
 
                 editModal.classList.remove('hidden');
             }
@@ -725,8 +898,14 @@
                         category: document.getElementById('editCategory').value.trim() || '其他',
                         estimatedPrice: priceValue,
                         referenceLink: document.getElementById('editReferenceLink').value.trim(),
-                        imageBase64: imageThumbnail.dataset.base64 || '', // 取得暫存的 Base64
+                        
+                        // 儲存兩個 Base64 數據
+                        thumbBase64: imageThumbnail.dataset.thumbBase64 || '',
+                        fullBase64: imageThumbnail.dataset.fullBase64 || '',
                     };
+                    
+                    // 移除舊的 imageBase64 欄位，確保數據結構乾淨
+                    delete updatedItem.imageBase64;
 
                     items[currentEditIndex] = updatedItem;
                     saveItems();
@@ -736,7 +915,8 @@
                 }
             });
 
-            // Initial Load
+            // Initial Load: 首次載入時也計算總金額
+            calculateAndDisplayTotal();
             renderItems();
         });
     </script>
