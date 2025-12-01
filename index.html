@@ -111,30 +111,71 @@
 
     <!-- 編輯 Modal 彈出視窗 (預設隱藏) -->
     <div id="editModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50 transition-opacity duration-300 hidden">
-        <div class="card-bg w-full max-w-md rounded-2xl p-6 shadow-2xl transform scale-100 transition-transform duration-300">
+        <div class="card-bg w-full max-w-md rounded-2xl p-6 shadow-2xl transform scale-100 transition-transform duration-300 max-h-[90vh] overflow-y-auto">
             <h3 class="text-2xl font-bold mb-5 accent-text border-b border-gray-700 pb-2">編輯項目詳情</h3>
             <form id="editForm" class="space-y-4">
                 
                 <!-- 項目名稱 / 連結 -->
                 <div>
-                    <label for="editName" class="block text-sm font-medium text-gray-400">項目名稱 / 連結 <span class="text-red-400">*</span></label>
+                    <label for="editName" class="block text-sm font-medium text-gray-400">項目名稱 / 購買物 <span class="text-red-400">*</span></label>
                     <input type="text" id="editName" required class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
                 </div>
                 
                 <!-- 朋友名稱 -->
                 <div>
-                    <label for="editFriend" class="block text-sm font-medium text-gray-400">朋友名稱 <span class="text-red-400">*</span></label>
+                    <label for="editFriend" class="block text-sm font-medium text-gray-400">朋友名稱 / 填寫人 <span class="text-red-400">*</span></label>
                     <input type="text" id="editFriend" required class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
+                </div>
+
+                <!-- 類型 -->
+                <div>
+                    <label for="editCategory" class="block text-sm font-medium text-gray-400">類型</label>
+                    <input type="text" id="editCategory" class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg" placeholder="藥妝, 零食, 娃娃, 宅物...">
                 </div>
                 
                 <!-- 數量 -->
                 <div>
-                    <label for="editQuantity" class="block text-sm font-medium text-gray-400">數量 <span class="text-red-400">*</span></label>
+                    <label for="editQuantity" class="block text-sm font-medium text-gray-400">購買量 <span class="text-red-400">*</span></label>
                     <input type="number" id="editQuantity" required min="1" class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
                 </div>
-                
+
+                 <!-- 預計金額(JPY) -->
+                <div>
+                    <label for="editEstimatedPrice" class="block text-sm font-medium text-gray-400">預計金額(JPY)</label>
+                    <!-- 使用 text input 讓 JS 處理千位符號 -->
+                    <input type="text" id="editEstimatedPrice" class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg" inputmode="numeric" placeholder="例如: 1,500">
+                </div>
+
+                <!-- 參考連結 -->
+                <div>
+                    <label for="editReferenceLink" class="block text-sm font-medium text-gray-400">參考連結 或 圖片 URL</label>
+                    <input type="url" id="editReferenceLink" class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg" placeholder="可選填">
+                </div>
+
+                <!-- 參考圖片(上傳) 區塊 -->
+                <div class="border-t border-gray-700 pt-4 mt-4">
+                    <label class="block text-sm font-medium text-gray-400 mb-2">參考圖片 (壓縮為縮圖存入本機)</label>
+                    <div class="flex items-center space-x-3">
+                        <label for="imageUpload" class="px-4 py-2 text-sm bg-gray-600 rounded-xl cursor-pointer hover:bg-gray-500 transition duration-200">
+                            <i class="fas fa-camera mr-1"></i> 拍照 / 上傳照片
+                        </label>
+                        <!-- capture="environment" 啟用行動裝置後置鏡頭 -->
+                        <input type="file" id="imageUpload" accept="image/*" capture="environment" class="hidden">
+                        
+                        <button type="button" id="removeImageBtn" class="px-4 py-2 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 transition duration-200 hidden">
+                            <i class="fas fa-trash-alt mr-1"></i> 移除圖片
+                        </button>
+                    </div>
+                    
+                    <!-- 縮圖預覽 -->
+                    <div id="imagePreviewContainer" class="mt-3 hidden">
+                        <img id="imageThumbnail" class="w-20 h-20 object-cover rounded-lg border-2 border-accent-bg" alt="Thumbnail Preview">
+                        <!-- Canvas is used for compression, not display -->
+                    </div>
+                </div>
+
                 <!-- 已購買狀態 -->
-                <div class="flex items-center pt-2">
+                <div class="flex items-center pt-2 border-t border-gray-700">
                     <input type="checkbox" id="editPurchased" class="h-5 w-5 text-accent-bg rounded border-gray-500 focus:ring-accent-bg bg-gray-700">
                     <label for="editPurchased" class="ml-3 block text-base font-medium text-gray-300">已完成購買</label>
                 </div>
@@ -160,8 +201,69 @@
         </div>
     </div>
 
+    <!-- 新增確認 Modal (取代 confirm()) -->
+    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50 hidden">
+        <div class="card-bg w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+            <h3 id="confirmTitle" class="text-xl font-bold mb-4 text-red-400"></h3>
+            <p id="confirmMessage" class="mb-6 text-gray-300"></p>
+            <div class="flex justify-end space-x-3">
+                <button id="confirmCancelBtn" class="px-4 py-2 text-gray-300 rounded-lg hover:bg-gray-700 transition duration-200">取消</button>
+                <button id="confirmConfirmBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition duration-200">確定</button>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript 邏輯 -->
     <script>
+        // --- Image Resizing and Conversion Utility ---
+        
+        /**
+         * 壓縮圖片並轉換為 Base64 縮圖。
+         * @param {File} file - 原始圖片檔案。
+         * @returns {Promise<string>} Base64 格式的縮圖數據。
+         */
+        function resizeImageAndConvertToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_SIZE = 120; // 縮圖最大邊長 (例如 120x120)
+                        let width = img.width;
+                        let height = img.height;
+
+                        // 計算縮放比例
+                        if (width > height) {
+                            if (width > MAX_SIZE) {
+                                height *= MAX_SIZE / width;
+                                width = MAX_SIZE;
+                            }
+                        } else {
+                            if (height > MAX_SIZE) {
+                                width *= MAX_SIZE / height;
+                                height = MAX_SIZE;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // 轉換為 Base64 (使用 JPEG 格式和 0.7 壓縮率以節省 localStorage 空間)
+                        const base64 = canvas.toDataURL('image/jpeg', 0.7);
+                        resolve(base64);
+                    };
+                    img.onerror = () => reject('Image loading error');
+                    img.src = event.target.result;
+                };
+                reader.onerror = () => reject('FileReader error');
+                reader.readAsDataURL(file);
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const itemList = document.getElementById('itemList');
             const csvFile = document.getElementById('csvFile');
@@ -175,8 +277,22 @@
             const messageText = document.getElementById('messageText');
             const messageIcon = document.getElementById('messageIcon');
 
+            // Confirm Modal Elements
+            const confirmModal = document.getElementById('confirmModal');
+            const confirmTitle = document.getElementById('confirmTitle');
+            const confirmMessage = document.getElementById('confirmMessage');
+            const confirmConfirmBtn = document.getElementById('confirmConfirmBtn');
+            const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+
+            // Image Edit Elements
+            const imageUpload = document.getElementById('imageUpload');
+            const removeImageBtn = document.getElementById('removeImageBtn');
+            const imageThumbnail = document.getElementById('imageThumbnail');
+            const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+            
             let items = loadItems();
             let currentEditIndex = null;
+            let confirmResolver = null; // Promise resolver for confirmModal
 
             // --- Utility Functions ---
 
@@ -208,6 +324,37 @@
                     messageBox.classList.add('opacity-0');
                 }, 3000);
             }
+            
+            // 替代原生 confirm() 的 Modal
+            function showConfirm(title, message, confirmText = '確定', confirmColor = 'bg-red-600') {
+                return new Promise(resolve => {
+                    confirmTitle.textContent = title;
+                    confirmMessage.textContent = message;
+                    confirmConfirmBtn.textContent = confirmText;
+                    // Ensure Tailwind class works on the button
+                    confirmConfirmBtn.className = `px-4 py-2 ${confirmColor} text-white rounded-lg font-semibold hover:opacity-80 transition duration-200`;
+                    
+                    confirmModal.classList.remove('hidden');
+                    confirmResolver = resolve;
+                });
+            }
+
+            confirmConfirmBtn.addEventListener('click', () => {
+                confirmModal.classList.add('hidden');
+                if (confirmResolver) {
+                    confirmResolver(true);
+                    confirmResolver = null;
+                }
+            });
+
+            confirmCancelBtn.addEventListener('click', () => {
+                confirmModal.classList.add('hidden');
+                if (confirmResolver) {
+                    confirmResolver(false);
+                    confirmResolver = null;
+                }
+            });
+
 
             // --- Data Persistence ---
 
@@ -273,12 +420,15 @@
                 // 嘗試匹配常見的 Google 表單欄位名稱 (中/英文)
                 const findIndex = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
 
-                const itemNameIndex = findIndex(['項目名稱', 'Item Name', '連結', 'Item']);
-                const friendNameIndex = findIndex(['朋友名稱', 'Friend Name', '姓名', 'Name']);
-                const quantityIndex = findIndex(['數量', 'Quantity']);
+                const itemNameIndex = findIndex(['購買物', '項目名稱', 'Item Name', '連結', 'Item']);
+                const friendNameIndex = findIndex(['填寫人', '朋友名稱', 'Friend Name', '姓名', 'Name']);
+                const quantityIndex = findIndex(['購買量', '數量', 'Quantity']);
+                const categoryIndex = findIndex(['類型', 'Category']); // NEW
+                const priceIndex = findIndex(['預計金額(JPY)', 'Estimated Price']); // NEW
+                const linkIndex = findIndex(['參考連結', 'Reference Link', '連結', 'URL']); // NEW
 
-                if (itemNameIndex === -1 || friendNameIndex === -1 || quantityIndex === -1) {
-                    showMessage('CSV 標題行無法識別。請確認包含: 項目名稱/連結, 朋友名稱, 數量。', 'error');
+                if (itemNameIndex === -1 || friendNameIndex === -1 || quantityIndex === -1 || categoryIndex === -1 || priceIndex === -1) {
+                    showMessage('CSV 標題行無法識別。請確認包含: 購買物, 填寫人, 購買量, 類型, 預計金額(JPY)。', 'error');
                     return;
                 }
 
@@ -288,19 +438,30 @@
                 dataLines.forEach(line => {
                     const cols = parseCSVLine(line);
                     
-                    if (cols.length > Math.max(itemNameIndex, friendNameIndex, quantityIndex)) {
+                    if (cols.length > Math.max(itemNameIndex, friendNameIndex, quantityIndex, categoryIndex, priceIndex, linkIndex || 0)) {
                         const name = cols[itemNameIndex].trim();
                         const friend = cols[friendNameIndex].trim();
                         const quantity = parseInt(cols[quantityIndex].trim());
+                        const category = cols[categoryIndex].trim() || '其他'; // Use '其他' as default
+                        
+                        // 處理金額：移除千位符號 (,) 並解析
+                        const priceStr = cols[priceIndex].trim().replace(/,/g, '');
+                        const estimatedPrice = parseInt(priceStr) || 0; 
+
+                        const referenceLink = linkIndex !== -1 ? cols[linkIndex].trim() : ''; 
                         
                         const key = `${name}-${friend}`;
 
                         if (name && friend && !isNaN(quantity) && quantity > 0 && !existingItems.has(key)) {
                             items.push({
-                                id: Date.now() + Math.random(), // Unique ID
+                                id: Date.now() + Math.random(), 
                                 name: name,
                                 friend: friend,
                                 quantity: quantity,
+                                category: category, // Added
+                                estimatedPrice: estimatedPrice, // Added
+                                referenceLink: referenceLink, // Added
+                                imageBase64: '', // New field for uploaded thumbnail
                                 purchased: false
                             });
                             existingItems.add(key);
@@ -325,12 +486,16 @@
                 reader.readAsText(file, 'UTF-8');
             });
 
-            clearDataBtn.addEventListener('click', () => {
-                // 使用自訂 Modal 替代 confirm()
-                if (confirm('確定要清除所有代購記錄嗎？此操作無法撤銷！')) {
+            clearDataBtn.addEventListener('click', async () => {
+                const confirmed = await showConfirm(
+                    '🚨 永久清除警告',
+                    '確定要清除所有代購記錄嗎？此操作無法撤銷，資料將永久遺失！',
+                    '永久清除'
+                );
+                if (confirmed) {
                     items = [];
                     saveItems();
-                    showMessage('所有資料已清除。', 'info');
+                    showMessage('所有資料已清除。', 'error');
                 }
             });
 
@@ -351,25 +516,56 @@
 
                 items.forEach((item, index) => {
                     const itemDiv = document.createElement('div');
-                    itemDiv.className = `p-4 rounded-xl shadow-lg transition duration-300 flex justify-between items-center card-bg border-l-4 border-gray-600 ${item.purchased ? 'item-purchased success-border' : 'border-accent-bg'}`;
+                    // 根據是否有 Base64 圖片調整佈局
+                    const itemLayoutClass = item.imageBase64 ? 'grid grid-cols-5 gap-3' : 'flex justify-between items-center';
+                    
+                    itemDiv.className = `p-4 rounded-xl shadow-lg transition duration-300 card-bg border-l-4 border-gray-600 ${item.purchased ? 'item-purchased success-border' : 'border-accent-bg'} ${itemLayoutClass}`;
                     itemDiv.dataset.index = index;
 
-                    itemDiv.innerHTML = `
-                        <!-- 左側內容 -->
-                        <div class="flex-grow min-w-0 pr-3">
+                    const content = `
+                        <!-- 左側內容 (佔 4/5 欄或 flex-grow) -->
+                        <div class="${item.imageBase64 ? 'col-span-4' : 'flex-grow min-w-0 pr-3'}">
                             <p class="text-lg font-bold item-name whitespace-normal break-words">${item.name}</p>
-                            <p class="text-sm text-gray-400 mt-1">
+                            
+                            <p class="text-sm text-gray-400 mt-1 space-x-2">
                                 <span class="text-base text-gray-300"><i class="fas fa-user-tag mr-1"></i> ${item.friend} </span>
                                 <span class="mx-1 text-gray-600">|</span> 
                                 <span class="text-base text-gray-300"><i class="fas fa-hashtag mr-1"></i> ${item.quantity}</span>
                             </p>
+
+                            <!-- 類型與價格 -->
+                            <p class="text-xs text-gray-400 mt-2 flex items-center flex-wrap">
+                                <span class="font-semibold text-gray-300 mr-3"><i class="fas fa-bookmark mr-1"></i> ${item.category || 'N/A'}</span>
+                                <span class="font-semibold text-accent-text mr-3"><i class="fas fa-yen-sign mr-1"></i> ${(item.estimatedPrice || 0).toLocaleString('en-US')} JPY</span>
+                            </p>
+
+                            <!-- 連結與圖片標記 -->
+                            <p class="text-xs mt-2 flex items-center flex-wrap">
+                                ${item.referenceLink ? `
+                                    <a href="${item.referenceLink}" target="_blank" class="text-blue-400 hover:text-blue-300 transition duration-200 font-medium mr-3 inline-flex items-center">
+                                        <i class="fas fa-external-link-alt mr-1"></i> 連結
+                                    </a>` : ''}
+
+                                ${item.imageBase64 ? `
+                                    <span class="text-green-400 font-medium inline-flex items-center">
+                                        <i class="fas fa-image mr-1"></i> 圖片已存
+                                    </span>` : ''}
+                            </p>
+                            
                             ${item.purchased ? '<span class="text-xs font-semibold success-text mt-2 inline-block"><i class="fas fa-check-circle mr-1"></i> 已購買</span>' : ''}
                         </div>
 
-                        <!-- 右側操作按鈕 -->
-                        <div class="flex flex-col space-y-2 ml-3 flex-shrink-0">
+                        <!-- 縮圖 (佔 1/5 欄) -->
+                        ${item.imageBase64 ? `
+                            <div class="col-span-1 ml-auto flex-shrink-0 w-12 h-12 overflow-hidden rounded-md border-2 border-gray-600">
+                                <img src="${item.imageBase64}" alt="Thumbnail" class="w-full h-full object-cover">
+                            </div>
+                        ` : ''}
+
+                        <!-- 右側操作按鈕 (在 flex 佈局中放置最右邊，在 grid 佈局中放在下方) -->
+                        <div class="${item.imageBase64 ? 'col-span-5 pt-3 border-t border-gray-700 mt-3 flex justify-end' : 'flex flex-col space-y-2 ml-3 flex-shrink-0'}">
                             <!-- 標記按鈕 (大) -->
-                            <button class="toggle-purchased-btn w-10 h-10 rounded-full flex items-center justify-center transition duration-200 shadow-md ${item.purchased ? 'bg-success-text hover:bg-green-700' : 'accent-bg hover:opacity-80'}" 
+                            <button class="toggle-purchased-btn w-10 h-10 rounded-full flex items-center justify-center transition duration-200 shadow-md ${item.purchased ? 'bg-success-text hover:bg-green-700' : 'accent-bg hover:opacity-80'} ${item.imageBase64 ? 'mr-3' : ''}" 
                                 data-index="${index}" title="${item.purchased ? '標記為未購' : '標記為已購'}">
                                 <i class="fas ${item.purchased ? 'fa-undo' : 'fa-shopping-basket'} text-white text-base"></i>
                             </button>
@@ -385,6 +581,7 @@
                             </div>
                         </div>
                     `;
+                    itemDiv.innerHTML = content;
                     itemList.appendChild(itemDiv);
                 });
             }
@@ -411,15 +608,47 @@
                 showMessage(items[index].purchased ? '項目已標記為 [已購買]！' : '項目已標記為 [待購買]！', 'info');
             }
 
-            function deleteItem(index) {
-                 // 使用自訂 Modal 替代 confirm()
-                if (confirm(`確定要刪除「${items[index].name}」的記錄嗎？`)) {
-                    const deletedName = items[index].name;
+            async function deleteItem(index) {
+                const name = items[index].name;
+                const confirmed = await showConfirm(
+                    '⚠️ 刪除確認',
+                    `確定要刪除「${name}」的記錄嗎？`,
+                    '刪除',
+                    'bg-red-600'
+                );
+                if (confirmed) {
                     items.splice(index, 1);
                     saveItems();
-                    showMessage(`已刪除項目：「${deletedName}」。`, 'info');
+                    showMessage(`已刪除項目：「${name}」。`, 'info');
                 }
             }
+
+            // --- Image Upload Handlers ---
+
+            imageUpload.addEventListener('change', async (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    try {
+                        const base64Data = await resizeImageAndConvertToBase64(file);
+                        imageThumbnail.src = base64Data;
+                        imagePreviewContainer.classList.remove('hidden');
+                        removeImageBtn.classList.remove('hidden');
+                        // 暫存 Base64 數據到 dataset，等待 Modal 儲存
+                        imageThumbnail.dataset.base64 = base64Data; 
+                    } catch (e) {
+                        console.error("Image processing failed:", e);
+                        showMessage('圖片處理失敗！', 'error');
+                    }
+                }
+            });
+
+            removeImageBtn.addEventListener('click', () => {
+                imageThumbnail.src = '';
+                imageThumbnail.dataset.base64 = ''; // 清除暫存
+                imagePreviewContainer.classList.add('hidden');
+                removeImageBtn.classList.add('hidden');
+            });
+
 
             // --- Edit Modal Functions ---
 
@@ -431,6 +660,25 @@
                 document.getElementById('editFriend').value = item.friend;
                 document.getElementById('editQuantity').value = item.quantity;
                 document.getElementById('editPurchased').checked = item.purchased;
+
+                // Load New Fields
+                document.getElementById('editCategory').value = item.category || '';
+                // 格式化金額顯示 (加上千位符號，方便查看)
+                document.getElementById('editEstimatedPrice').value = (item.estimatedPrice || 0).toLocaleString('en-US');
+                document.getElementById('editReferenceLink').value = item.referenceLink || '';
+
+                // Load Image
+                if (item.imageBase64) {
+                    imageThumbnail.src = item.imageBase64;
+                    imageThumbnail.dataset.base64 = item.imageBase64; // 載入時存入 dataset
+                    imagePreviewContainer.classList.remove('hidden');
+                    removeImageBtn.classList.remove('hidden');
+                } else {
+                    imageThumbnail.src = '';
+                    imageThumbnail.dataset.base64 = '';
+                    imagePreviewContainer.classList.add('hidden');
+                    removeImageBtn.classList.add('hidden');
+                }
 
                 editModal.classList.remove('hidden');
             }
@@ -445,9 +693,11 @@
 
                 if (currentEditIndex !== null) {
                     const quantityValue = parseInt(document.getElementById('editQuantity').value);
+                    const rawPrice = document.getElementById('editEstimatedPrice').value.replace(/,/g, '');
+                    const priceValue = parseInt(rawPrice) || 0; // 允許為 0 或空
 
-                    if (isNaN(quantityValue) || quantityValue <= 0) {
-                        showMessage('數量必須是有效的正整數。', 'error');
+                    if (isNaN(quantityValue) || quantityValue <= 0 || isNaN(priceValue)) {
+                        showMessage('購買量必須是有效的正整數，金額必須是有效數字。', 'error');
                         return;
                     }
 
@@ -456,7 +706,13 @@
                         name: document.getElementById('editName').value.trim(),
                         friend: document.getElementById('editFriend').value.trim(),
                         quantity: quantityValue,
-                        purchased: document.getElementById('editPurchased').checked
+                        purchased: document.getElementById('editPurchased').checked,
+                        
+                        // New Fields
+                        category: document.getElementById('editCategory').value.trim() || '其他',
+                        estimatedPrice: priceValue,
+                        referenceLink: document.getElementById('editReferenceLink').value.trim(),
+                        imageBase64: imageThumbnail.dataset.base64 || '', // 取得暫存的 Base64
                     };
 
                     items[currentEditIndex] = updatedItem;
