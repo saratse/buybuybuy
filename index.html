@@ -117,6 +117,11 @@
             <h2 class="text-xl font-semibold mb-3 border-b border-gray-600 pb-2">資料匯入與控制</h2>
             <div class="flex flex-col space-y-3">
                 
+                <!-- 新增項目按鈕 (新增) -->
+                <button id="addItemBtn" class="bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition duration-200 shadow-md">
+                    <i class="fas fa-plus-circle mr-2"></i> 手動新增代購項目
+                </button>
+
                 <!-- CSV 匯入按鈕 -->
                 <label for="csvFile" class="flex-grow text-center py-3 rounded-lg font-bold cursor-pointer accent-bg text-color-primary-bg hover:opacity-90 transition duration-200 shadow-md">
                     <i class="fas fa-file-upload mr-2"></i> 點擊匯入 Google 表單 CSV
@@ -149,7 +154,7 @@
     <!-- 編輯 Modal 彈出視窗 (預設隱藏) -->
     <div id="editModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50 transition-opacity duration-300 hidden">
         <div class="card-bg w-full max-w-md rounded-2xl p-6 shadow-2xl transform scale-100 transition-transform duration-300 max-h-[90vh] overflow-y-auto">
-            <h3 class="text-2xl font-bold mb-5 accent-text border-b border-gray-700 pb-2">編輯項目詳情</h3>
+            <h3 id="modalTitle" class="text-2xl font-bold mb-5 accent-text border-b border-gray-700 pb-2">編輯項目詳情</h3> <!-- 標題動態變更 -->
             <form id="editForm" class="space-y-4">
                 
                 <!-- 項目名稱 / 連結 -->
@@ -323,6 +328,7 @@
             const itemList = document.getElementById('itemList');
             const csvFile = document.getElementById('csvFile');
             const clearDataBtn = document.getElementById('clearDataBtn');
+            const addItemBtn = document.getElementById('addItemBtn'); // 新增
             const editModal = document.getElementById('editModal');
             const closeModalBtn = document.getElementById('closeModalBtn');
             const editForm = document.getElementById('editForm');
@@ -331,6 +337,7 @@
             const messageBox = document.getElementById('messageBox');
             const messageText = document.getElementById('messageText');
             const messageIcon = document.getElementById('messageIcon');
+            const modalTitle = document.getElementById('modalTitle'); // 新增
             
             // 總金額顯示元素
             const totalAmountDisplayJPY = document.getElementById('totalAmountJPY');
@@ -354,7 +361,7 @@
             const imagePreviewContainer = document.getElementById('imagePreviewContainer');
             
             let items = loadItems();
-            let currentEditIndex = null;
+            let currentEditIndex = null; // 編輯模式下的索引
             let confirmResolver = null; // Promise resolver for confirmModal
 
             // --- Full Image Modal Functions ---
@@ -638,6 +645,12 @@
                     showMessage('所有資料已清除。', 'error');
                 }
             });
+            
+            // 新增：處理手動新增按鈕點擊事件
+            addItemBtn.addEventListener('click', () => {
+                openEditModal(null); // 傳遞 null 表示這是新增模式
+            });
+
 
             // --- Rendering and Item Operations ---
 
@@ -832,35 +845,53 @@
 
             function openEditModal(index) {
                 currentEditIndex = index;
-                const item = items[index];
-
-                document.getElementById('editName').value = item.name;
-                document.getElementById('editFriend').value = item.friend;
-                document.getElementById('editQuantity').value = item.quantity;
-                document.getElementById('editPurchased').checked = item.purchased;
-
-                // Load New Fields
-                document.getElementById('editCategory').value = item.category || '';
-                // 格式化金額顯示 (加上千位符號，方便查看)
-                document.getElementById('editEstimatedPrice').value = (item.estimatedPrice || 0).toLocaleString('en-US');
-                document.getElementById('editReferenceLink').value = item.referenceLink || '';
-
-                // Load Image (使用 thumbBase64 進行預覽)
-                const thumbData = item.thumbBase64 || '';
-                const fullData = item.fullBase64 || '';
-
-                if (thumbData) {
-                    imageThumbnail.src = thumbData;
-                    imageThumbnail.dataset.thumbBase64 = thumbData; 
-                    imageThumbnail.dataset.fullBase64 = fullData; 
-                    imagePreviewContainer.classList.remove('hidden');
-                    removeImageBtn.classList.remove('hidden');
-                } else {
+                
+                // 1. 設定 Modal 標題和重置表單
+                if (index === null) {
+                    // 新增模式
+                    modalTitle.textContent = '新增代購項目';
+                    editForm.reset();
+                    // 確保圖片預覽是空的
                     imageThumbnail.src = '';
                     imageThumbnail.dataset.thumbBase64 = '';
                     imageThumbnail.dataset.fullBase64 = '';
                     imagePreviewContainer.classList.add('hidden');
                     removeImageBtn.classList.add('hidden');
+                    document.getElementById('editPurchased').checked = false; // 預設為未購買
+                    document.getElementById('editQuantity').value = 1; // 預設數量為 1
+                } else {
+                    // 編輯模式
+                    modalTitle.textContent = '編輯項目詳情';
+                    const item = items[index];
+
+                    document.getElementById('editName').value = item.name;
+                    document.getElementById('editFriend').value = item.friend;
+                    document.getElementById('editQuantity').value = item.quantity;
+                    document.getElementById('editPurchased').checked = item.purchased;
+
+                    // Load New Fields
+                    document.getElementById('editCategory').value = item.category || '';
+                    // 格式化金額顯示 (加上千位符號，方便查看)
+                    document.getElementById('editEstimatedPrice').value = (item.estimatedPrice || 0).toLocaleString('en-US');
+                    document.getElementById('editReferenceLink').value = item.referenceLink || '';
+
+                    // Load Image (使用 thumbBase64 進行預覽)
+                    const thumbData = item.thumbBase64 || '';
+                    const fullData = item.fullBase64 || '';
+
+                    if (thumbData) {
+                        imageThumbnail.src = thumbData;
+                        imageThumbnail.dataset.thumbBase64 = thumbData; 
+                        imageThumbnail.dataset.fullBase64 = fullData; 
+                        imagePreviewContainer.classList.remove('hidden');
+                        removeImageBtn.classList.remove('hidden');
+                    } else {
+                        imageThumbnail.src = '';
+                        imageThumbnail.dataset.thumbBase64 = '';
+                        imageThumbnail.dataset.fullBase64 = '';
+                        imagePreviewContainer.classList.add('hidden');
+                        removeImageBtn.classList.add('hidden');
+                    }
                 }
                 
                 // 重置 file input 避免重複觸發 change 事件
@@ -877,42 +908,51 @@
             editForm.addEventListener('submit', (event) => {
                 event.preventDefault();
 
-                if (currentEditIndex !== null) {
-                    const quantityValue = parseInt(document.getElementById('editQuantity').value);
-                    const rawPrice = document.getElementById('editEstimatedPrice').value.replace(/,/g, '');
-                    const priceValue = parseInt(rawPrice) || 0; // 允許為 0 或空
+                const quantityValue = parseInt(document.getElementById('editQuantity').value);
+                const rawPrice = document.getElementById('editEstimatedPrice').value.replace(/,/g, '');
+                const priceValue = parseInt(rawPrice) || 0; // 允許為 0 或空
 
-                    if (isNaN(quantityValue) || quantityValue <= 0 || isNaN(priceValue)) {
-                        showMessage('購買量必須是有效的正整數，金額必須是有效數字。', 'error');
-                        return;
-                    }
-
-                    const updatedItem = {
-                        ...items[currentEditIndex],
-                        name: document.getElementById('editName').value.trim(),
-                        friend: document.getElementById('editFriend').value.trim(),
-                        quantity: quantityValue,
-                        purchased: document.getElementById('editPurchased').checked,
-                        
-                        // New Fields
-                        category: document.getElementById('editCategory').value.trim() || '其他',
-                        estimatedPrice: priceValue,
-                        referenceLink: document.getElementById('editReferenceLink').value.trim(),
-                        
-                        // 儲存兩個 Base64 數據
-                        thumbBase64: imageThumbnail.dataset.thumbBase64 || '',
-                        fullBase64: imageThumbnail.dataset.fullBase64 || '',
-                    };
-                    
-                    // 移除舊的 imageBase64 欄位，確保數據結構乾淨
-                    delete updatedItem.imageBase64;
-
-                    items[currentEditIndex] = updatedItem;
-                    saveItems();
-                    editModal.classList.add('hidden');
-                    currentEditIndex = null;
-                    showMessage('項目已成功更新！', 'success');
+                if (isNaN(quantityValue) || quantityValue <= 0 || isNaN(priceValue)) {
+                    showMessage('購買量必須是有效的正整數，金額必須是有效數字。', 'error');
+                    return;
                 }
+                
+                // 構造基礎項目數據
+                const newItemData = {
+                    name: document.getElementById('editName').value.trim(),
+                    friend: document.getElementById('editFriend').value.trim(),
+                    quantity: quantityValue,
+                    purchased: document.getElementById('editPurchased').checked,
+                    category: document.getElementById('editCategory').value.trim() || '其他',
+                    estimatedPrice: priceValue,
+                    referenceLink: document.getElementById('editReferenceLink').value.trim(),
+                    thumbBase64: imageThumbnail.dataset.thumbBase64 || '',
+                    fullBase64: imageThumbnail.dataset.fullBase64 || '',
+                };
+
+
+                if (currentEditIndex !== null) {
+                    // --- 編輯模式 ---
+                    items[currentEditIndex] = {
+                        ...items[currentEditIndex], // 保留 id 和 timestamp
+                        ...newItemData 
+                    };
+                    delete items[currentEditIndex].imageBase64; // 清理舊欄位
+                    showMessage('項目已成功更新！', 'success');
+
+                } else {
+                    // --- 新增模式 ---
+                    items.push({
+                        ...newItemData,
+                        id: Date.now() + Math.random(), 
+                        timestamp: Date.now(), // 新增項目給予當前時間戳記
+                    });
+                    showMessage('項目已成功新增！', 'success');
+                }
+                
+                saveItems();
+                editModal.classList.add('hidden');
+                currentEditIndex = null;
             });
 
             // Initial Load: 首次載入時也計算總金額
