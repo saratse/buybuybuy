@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏮 日本代購清單 - Vibe 購物列表</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* 1. Core Variables & Font Styling (日式簡約深色主題) */
+        :root {
+            /* 主題色 */
+            --color-primary-bg: #1A1A2E; /* 深海藍/近黑 */
+            --color-card-bg: #2A2A4A;    /* 較淺卡片背景 */
+            --color-text-light: #E0E0E0; /* 淺色主文字 */
+            --color-accent: #FF9A70;     /* 暖橘色/日式暖色 */
+            --color-success: #38A169;    /* 綠色 (已購買) */
+            /* 字體：使用思源黑體 (Noto Sans TC) 或系統預設的無襯線中文字體 */
+            --font-family: 'Noto Sans TC', 'Hiragino Sans', '微軟正黑體', 'Microsoft JhengHei', sans-serif;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--color-primary-bg);
+            color: var(--color-text-light);
+            min-height: 100vh;
+        }
+
+        /* 2. Custom Utility Classes */
+        .card-bg { background-color: var(--color-card-bg); }
+        .accent-bg { background-color: var(--color-accent); }
+        .accent-text { color: var(--color-accent); }
+        .success-border { border-left-color: var(--color-success); }
+        .success-text { color: var(--color-success); }
+
+        /* 3. Purchased Item Style */
+        .item-purchased {
+            opacity: 0.7;
+            border-left: 5px solid var(--color-success);
+        }
+        .item-purchased .item-name {
+            text-decoration: line-through;
+            color: #9CA3AF; /* 灰色 */
+        }
+
+        /* 4. Ensure inputs contrast well */
+        input:focus {
+            outline: none !important;
+            border-color: var(--color-accent) !important;
+            box-shadow: 0 0 0 2px rgba(255, 154, 112, 0.5) !important;
+        }
+
+        /* 5. Mobile Layout adjustment */
+        .main-container {
+            max-width: 100%; /* Full width on mobile */
+            padding: 1rem;
+        }
+
+        @media (min-width: 640px) {
+            .main-container {
+                max-width: 480px; /* Constrain width on larger screens */
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="main-container mx-auto">
+
+        <!-- 標題區 -->
+        <header class="text-center py-6 border-b border-gray-700 mb-6">
+            <h1 class="text-4xl font-extrabold accent-text">旅日代購清單</h1>
+            <p class="text-sm text-gray-400 mt-1">Friends' Vibe List · 一鍵匯入與管理</p>
+        </header>
+
+        <!-- 匯入與管理區塊 -->
+        <section class="mb-8 p-5 rounded-xl card-bg shadow-2xl">
+            <h2 class="text-xl font-semibold mb-3 border-b border-gray-600 pb-2">資料匯入與控制</h2>
+            <div class="flex flex-col space-y-3">
+                
+                <!-- CSV 匯入按鈕 -->
+                <label for="csvFile" class="flex-grow text-center py-3 rounded-lg font-bold cursor-pointer accent-bg text-color-primary-bg hover:opacity-90 transition duration-200 shadow-md">
+                    <i class="fas fa-file-upload mr-2"></i> 點擊匯入 Google 表單 CSV
+                </label>
+                <input type="file" id="csvFile" accept=".csv" class="hidden">
+                
+                <!-- 清除資料按鈕 -->
+                <button id="clearDataBtn" class="bg-red-700 text-white py-3 rounded-lg font-bold hover:bg-red-800 transition duration-200 shadow-md">
+                    <i class="fas fa-database mr-2"></i> 清除所有記錄 (本機儲存)
+                </button>
+            </div>
+        </section>
+
+        <!-- 清單顯示區 -->
+        <section class="mb-20">
+            <h2 class="text-xl font-semibold mb-4 flex justify-between items-center">
+                待辦/已購項目
+                <span class="text-sm text-gray-400">總數: <span id="itemCount" class="font-bold accent-text">0</span></span>
+            </h2>
+            <div id="itemList" class="space-y-4">
+                <!-- 代購項目將由 JavaScript 渲染到這裡 -->
+                <p id="emptyListMessage" class="text-center text-gray-500 italic p-6 rounded-lg card-bg hidden">
+                    <i class="fas fa-box-open mr-2"></i> 目前沒有代購項目。請匯入 CSV。
+                </p>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- 編輯 Modal 彈出視窗 (預設隱藏) -->
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50 transition-opacity duration-300 hidden">
+        <div class="card-bg w-full max-w-md rounded-2xl p-6 shadow-2xl transform scale-100 transition-transform duration-300">
+            <h3 class="text-2xl font-bold mb-5 accent-text border-b border-gray-700 pb-2">編輯項目詳情</h3>
+            <form id="editForm" class="space-y-4">
+                
+                <!-- 項目名稱 / 連結 -->
+                <div>
+                    <label for="editName" class="block text-sm font-medium text-gray-400">項目名稱 / 連結 <span class="text-red-400">*</span></label>
+                    <input type="text" id="editName" required class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
+                </div>
+                
+                <!-- 朋友名稱 -->
+                <div>
+                    <label for="editFriend" class="block text-sm font-medium text-gray-400">朋友名稱 <span class="text-red-400">*</span></label>
+                    <input type="text" id="editFriend" required class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
+                </div>
+                
+                <!-- 數量 -->
+                <div>
+                    <label for="editQuantity" class="block text-sm font-medium text-gray-400">數量 <span class="text-red-400">*</span></label>
+                    <input type="number" id="editQuantity" required min="1" class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
+                </div>
+                
+                <!-- 已購買狀態 -->
+                <div class="flex items-center pt-2">
+                    <input type="checkbox" id="editPurchased" class="h-5 w-5 text-accent-bg rounded border-gray-500 focus:ring-accent-bg bg-gray-700">
+                    <label for="editPurchased" class="ml-3 block text-base font-medium text-gray-300">已完成購買</label>
+                </div>
+                
+                <!-- 操作按鈕 -->
+                <div class="flex justify-end space-x-3 pt-6">
+                    <button type="button" id="closeModalBtn" class="px-5 py-2 text-gray-300 rounded-xl hover:bg-gray-700 transition duration-200">
+                        <i class="fas fa-times mr-1"></i> 取消
+                    </button>
+                    <button type="submit" class="px-5 py-2 accent-bg text-color-primary-bg rounded-xl font-semibold hover:opacity-90 transition duration-200 shadow-lg">
+                        <i class="fas fa-save mr-1"></i> 儲存變更
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 訊息提示 (取代 alert()) -->
+    <div id="messageBox" class="fixed top-5 right-5 z-50 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="bg-gray-800 text-white px-4 py-3 rounded-lg shadow-xl flex items-center">
+            <i id="messageIcon" class="mr-2"></i>
+            <span id="messageText"></span>
+        </div>
+    </div>
+
+    <!-- JavaScript 邏輯 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const itemList = document.getElementById('itemList');
+            const csvFile = document.getElementById('csvFile');
+            const clearDataBtn = document.getElementById('clearDataBtn');
+            const editModal = document.getElementById('editModal');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const editForm = document.getElementById('editForm');
+            const itemCountSpan = document.getElementById('itemCount');
+            const emptyListMessage = document.getElementById('emptyListMessage');
+            const messageBox = document.getElementById('messageBox');
+            const messageText = document.getElementById('messageText');
+            const messageIcon = document.getElementById('messageIcon');
+
+            let items = loadItems();
+            let currentEditIndex = null;
+
+            // --- Utility Functions ---
+
+            // 替代原生 alert() 的訊息提示
+            function showMessage(text, type = 'success') {
+                messageText.textContent = text;
+                messageBox.className = 'fixed top-5 right-5 z-50 transition-opacity duration-300 opacity-0 pointer-events-none'; // Reset classes
+                
+                if (type === 'success') {
+                    messageIcon.className = 'fas fa-check-circle text-green-400';
+                    messageBox.classList.add('bg-green-700/90');
+                } else if (type === 'error') {
+                    messageIcon.className = 'fas fa-exclamation-triangle text-red-400';
+                    messageBox.classList.add('bg-red-700/90');
+                } else {
+                    messageIcon.className = 'fas fa-info-circle text-blue-400';
+                    messageBox.classList.add('bg-gray-800/90');
+                }
+
+                // Show
+                setTimeout(() => {
+                    messageBox.classList.remove('opacity-0');
+                    messageBox.classList.add('opacity-100');
+                }, 10);
+
+                // Hide after 3 seconds
+                setTimeout(() => {
+                    messageBox.classList.remove('opacity-100');
+                    messageBox.classList.add('opacity-0');
+                }, 3000);
+            }
+
+            // --- Data Persistence ---
+
+            function loadItems() {
+                try {
+                    const storedItems = localStorage.getItem('japanVibeList');
+                    return storedItems ? JSON.parse(storedItems) : [];
+                } catch (e) {
+                    console.error("Error loading items from localStorage:", e);
+                    return [];
+                }
+            }
+
+            function saveItems() {
+                try {
+                    localStorage.setItem('japanVibeList', JSON.stringify(items));
+                    renderItems();
+                } catch (e) {
+                    console.error("Error saving items to localStorage:", e);
+                    showMessage('儲存資料失敗！', 'error');
+                }
+            }
+
+            // --- CSV Parsing ---
+            
+            // 更可靠的 CSV 解析函數，處理引號和逗號
+            function parseCSVLine(text) {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    if (char === '"') {
+                        if (i + 1 < text.length && text[i + 1] === '"') {
+                            current += '"'; // Escaped double quote ""
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes; // Toggle quotes state
+                        }
+                    } else if (char === ',' && !inQuotes) {
+                        result.push(current.trim().replace(/^"|"$/g, ''));
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                result.push(current.trim().replace(/^"|"$/g, ''));
+                return result;
+            }
+
+            function parseCSV(csvText) {
+                const lines = csvText.trim().split('\n');
+                if (lines.length < 2) {
+                    showMessage('CSV 格式錯誤或內容空白。', 'error');
+                    return;
+                }
+
+                // 使用第一行標題來動態定位欄位
+                const headers = parseCSVLine(lines[0]).map(h => h.trim());
+                const dataLines = lines.slice(1);
+                
+                // 嘗試匹配常見的 Google 表單欄位名稱 (中/英文)
+                const findIndex = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
+
+                const itemNameIndex = findIndex(['項目名稱', 'Item Name', '連結', 'Item']);
+                const friendNameIndex = findIndex(['朋友名稱', 'Friend Name', '姓名', 'Name']);
+                const quantityIndex = findIndex(['數量', 'Quantity']);
+
+                if (itemNameIndex === -1 || friendNameIndex === -1 || quantityIndex === -1) {
+                    showMessage('CSV 標題行無法識別。請確認包含: 項目名稱/連結, 朋友名稱, 數量。', 'error');
+                    return;
+                }
+
+                let newItemsCount = 0;
+                let existingItems = new Set(items.map(item => `${item.name}-${item.friend}`)); // 避免完全重複匯入
+
+                dataLines.forEach(line => {
+                    const cols = parseCSVLine(line);
+                    
+                    if (cols.length > Math.max(itemNameIndex, friendNameIndex, quantityIndex)) {
+                        const name = cols[itemNameIndex].trim();
+                        const friend = cols[friendNameIndex].trim();
+                        const quantity = parseInt(cols[quantityIndex].trim());
+                        
+                        const key = `${name}-${friend}`;
+
+                        if (name && friend && !isNaN(quantity) && quantity > 0 && !existingItems.has(key)) {
+                            items.push({
+                                id: Date.now() + Math.random(), // Unique ID
+                                name: name,
+                                friend: friend,
+                                quantity: quantity,
+                                purchased: false
+                            });
+                            existingItems.add(key);
+                            newItemsCount++;
+                        }
+                    }
+                });
+
+                saveItems();
+                showMessage(`成功匯入 ${newItemsCount} 個項目！`, 'success');
+                csvFile.value = ''; // Reset input
+            }
+            
+            // --- Event Listeners for Data Management ---
+
+            csvFile.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => parseCSV(e.target.result);
+                reader.onerror = () => showMessage('讀取檔案失敗。', 'error');
+                reader.readAsText(file, 'UTF-8');
+            });
+
+            clearDataBtn.addEventListener('click', () => {
+                // 使用自訂 Modal 替代 confirm()
+                if (confirm('確定要清除所有代購記錄嗎？此操作無法撤銷！')) {
+                    items = [];
+                    saveItems();
+                    showMessage('所有資料已清除。', 'info');
+                }
+            });
+
+            // --- Rendering and Item Operations ---
+
+            function renderItems() {
+                itemList.innerHTML = '';
+                itemCountSpan.textContent = items.length;
+                
+                if (items.length === 0) {
+                    emptyListMessage.classList.remove('hidden');
+                } else {
+                    emptyListMessage.classList.add('hidden');
+                }
+
+                // 排序：未購 (false) 在前，已購 (true) 在後。未購按 ID (新舊) 排序。
+                items.sort((a, b) => (a.purchased === b.purchased) ? b.id - a.id : a.purchased - b.purchased);
+
+                items.forEach((item, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = `p-4 rounded-xl shadow-lg transition duration-300 flex justify-between items-center card-bg border-l-4 border-gray-600 ${item.purchased ? 'item-purchased success-border' : 'border-accent-bg'}`;
+                    itemDiv.dataset.index = index;
+
+                    itemDiv.innerHTML = `
+                        <!-- 左側內容 -->
+                        <div class="flex-grow min-w-0 pr-3">
+                            <p class="text-lg font-bold item-name whitespace-normal break-words">${item.name}</p>
+                            <p class="text-sm text-gray-400 mt-1">
+                                <span class="text-base text-gray-300"><i class="fas fa-user-tag mr-1"></i> ${item.friend} </span>
+                                <span class="mx-1 text-gray-600">|</span> 
+                                <span class="text-base text-gray-300"><i class="fas fa-hashtag mr-1"></i> ${item.quantity}</span>
+                            </p>
+                            ${item.purchased ? '<span class="text-xs font-semibold success-text mt-2 inline-block"><i class="fas fa-check-circle mr-1"></i> 已購買</span>' : ''}
+                        </div>
+
+                        <!-- 右側操作按鈕 -->
+                        <div class="flex flex-col space-y-2 ml-3 flex-shrink-0">
+                            <!-- 標記按鈕 (大) -->
+                            <button class="toggle-purchased-btn w-10 h-10 rounded-full flex items-center justify-center transition duration-200 shadow-md ${item.purchased ? 'bg-success-text hover:bg-green-700' : 'accent-bg hover:opacity-80'}" 
+                                data-index="${index}" title="${item.purchased ? '標記為未購' : '標記為已購'}">
+                                <i class="fas ${item.purchased ? 'fa-undo' : 'fa-shopping-basket'} text-white text-base"></i>
+                            </button>
+                            
+                            <!-- 編輯/刪除 (小) -->
+                            <div class="flex space-x-2">
+                                <button class="edit-btn w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition duration-200" data-index="${index}" title="編輯">
+                                    <i class="fas fa-pen text-xs"></i>
+                                </button>
+                                <button class="delete-btn w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-700 transition duration-200" data-index="${index}" title="刪除">
+                                    <i class="fas fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    itemList.appendChild(itemDiv);
+                });
+            }
+
+            // Delegated Event Listener for Item Actions
+            itemList.addEventListener('click', (event) => {
+                const target = event.target.closest('button');
+                if (!target) return;
+
+                const index = parseInt(target.dataset.index);
+
+                if (target.classList.contains('toggle-purchased-btn')) {
+                    togglePurchased(index);
+                } else if (target.classList.contains('edit-btn')) {
+                    openEditModal(index);
+                } else if (target.classList.contains('delete-btn')) {
+                    deleteItem(index);
+                }
+            });
+
+            function togglePurchased(index) {
+                items[index].purchased = !items[index].purchased;
+                saveItems();
+                showMessage(items[index].purchased ? '項目已標記為 [已購買]！' : '項目已標記為 [待購買]！', 'info');
+            }
+
+            function deleteItem(index) {
+                 // 使用自訂 Modal 替代 confirm()
+                if (confirm(`確定要刪除「${items[index].name}」的記錄嗎？`)) {
+                    const deletedName = items[index].name;
+                    items.splice(index, 1);
+                    saveItems();
+                    showMessage(`已刪除項目：「${deletedName}」。`, 'info');
+                }
+            }
+
+            // --- Edit Modal Functions ---
+
+            function openEditModal(index) {
+                currentEditIndex = index;
+                const item = items[index];
+
+                document.getElementById('editName').value = item.name;
+                document.getElementById('editFriend').value = item.friend;
+                document.getElementById('editQuantity').value = item.quantity;
+                document.getElementById('editPurchased').checked = item.purchased;
+
+                editModal.classList.remove('hidden');
+            }
+
+            closeModalBtn.addEventListener('click', () => {
+                editModal.classList.add('hidden');
+                currentEditIndex = null;
+            });
+
+            editForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+
+                if (currentEditIndex !== null) {
+                    const quantityValue = parseInt(document.getElementById('editQuantity').value);
+
+                    if (isNaN(quantityValue) || quantityValue <= 0) {
+                        showMessage('數量必須是有效的正整數。', 'error');
+                        return;
+                    }
+
+                    const updatedItem = {
+                        ...items[currentEditIndex],
+                        name: document.getElementById('editName').value.trim(),
+                        friend: document.getElementById('editFriend').value.trim(),
+                        quantity: quantityValue,
+                        purchased: document.getElementById('editPurchased').checked
+                    };
+
+                    items[currentEditIndex] = updatedItem;
+                    saveItems();
+                    editModal.classList.add('hidden');
+                    currentEditIndex = null;
+                    showMessage('項目已成功更新！', 'success');
+                }
+            });
+
+            // Initial Load
+            renderItems();
+        });
+    </script>
+</body>
+</html>
