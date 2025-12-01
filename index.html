@@ -420,13 +420,17 @@
                 // 嘗試匹配常見的 Google 表單欄位名稱 (中/英文)
                 const findIndex = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
 
+                // 根據使用者提供的 CSV 標題微調關鍵字列表，增強匹配能力
                 const itemNameIndex = findIndex(['購買物', '項目名稱', 'Item Name', '連結', 'Item']);
                 const friendNameIndex = findIndex(['填寫人', '朋友名稱', 'Friend Name', '姓名', 'Name']);
                 const quantityIndex = findIndex(['購買量', '數量', 'Quantity']);
-                const categoryIndex = findIndex(['類型', 'Category']); // NEW
-                const priceIndex = findIndex(['預計金額(JPY)', 'Estimated Price']); // NEW
-                const linkIndex = findIndex(['參考連結', 'Reference Link', '連結', 'URL']); // NEW
-
+                const categoryIndex = findIndex(['類型', 'Category']); 
+                const priceIndex = findIndex(['預計金額(JPY)', 'Estimated Price', '金額']); // 加入 '金額' 關鍵字
+                
+                // 針對 '參考連結 或 圖片' 這個複合標題，新增其完整名稱的匹配，以提高準確性
+                const linkIndex = findIndex(['參考連結 或 圖片', '參考連結', 'Reference Link', '連結', 'URL']); 
+                // 忽略最後的 '參考圖片' 欄位，因為它通常是 Google Sheets 檔案上傳的 ID，與我們的 Base64 縮圖邏輯不相干
+                
                 if (itemNameIndex === -1 || friendNameIndex === -1 || quantityIndex === -1 || categoryIndex === -1 || priceIndex === -1) {
                     showMessage('CSV 標題行無法識別。請確認包含: 購買物, 填寫人, 購買量, 類型, 預計金額(JPY)。', 'error');
                     return;
