@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏮 日本代購清單</title>
+    <title>🏮 日本代購清單 - Vibe 購物列表</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome CDN for Icons -->
@@ -37,16 +37,17 @@
 
         /* 3. Purchased Item Style */
         .item-purchased {
-            opacity: 0.7;
+            opacity: 0.6;
             border-left: 5px solid var(--color-success);
+            background-color: #232338; /* 稍微變暗 */
         }
         .item-purchased .item-name {
-            text-decoration: line-through;
-            color: #9CA3AF; /* 灰色 */
+            /* text-decoration: line-through; 用戶反饋名稱太長，劃掉會看不清，改為變灰 */
+            color: #888888; 
         }
 
         /* 4. Ensure inputs contrast well */
-        input:focus {
+        input:focus, select:focus, textarea:focus {
             outline: none !important;
             border-color: var(--color-accent) !important;
             box-shadow: 0 0 0 2px rgba(255, 154, 112, 0.5) !important;
@@ -84,6 +85,20 @@
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
             text-align: center;
         }
+        
+        /* 8. Filter Select Styling */
+        .filter-select {
+            background-color: #2A2A4A;
+            color: #E0E0E0;
+            border: 1px solid #4B5563;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+            -webkit-appearance: none;
+            appearance: none;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -91,46 +106,66 @@
     <div class="main-container mx-auto">
 
         <!-- 標題區 -->
-        <header class="text-center py-6 border-b border-gray-700 mb-6">
-            <h1 class="text-4xl font-extrabold accent-text">代購清單</h1>
-            <p class="text-sm text-gray-400 mt-1">Friends' Vibe List · 一鍵匯入與管理</p>
+        <header class="text-center py-6 border-b border-gray-700 mb-4">
+            <h1 class="text-4xl font-extrabold accent-text">旅日代購清單</h1>
+            <p class="text-sm text-gray-400 mt-1">Friends' Vibe List · 代購管理與結算</p>
         </header>
         
-        <!-- 總金額顯示區 (已更新為 JPY 和 HKD) -->
-        <div class="total-box">
-            <p class="text-sm text-gray-300 font-medium mb-2">未購項目預計總金額</p>
-            <div class="flex justify-around items-end">
-                <div>
-                    <span class="text-xs text-gray-400">JPY</span>
-                    <p id="totalAmountJPY" class="text-3xl font-bold text-white leading-tight">0</p>
-                </div>
-                <div class="border-l border-gray-600 h-10 mx-2"></div>
-                <div>
-                    <span class="text-xs text-gray-400">HKD (~0.06)</span>
-                    <p id="totalAmountHKD" class="text-3xl font-bold text-accent-text leading-tight">0.00</p>
-                </div>
+        <!-- 總金額顯示區 (左右分欄：預算 vs 支出) -->
+        <div class="total-box grid grid-cols-2 gap-4 divide-x divide-gray-600">
+            <!-- 左側：待購預算 -->
+            <div>
+                <p class="text-xs text-gray-400 mb-1">待購預算 (JPY)</p>
+                <p id="pendingTotalJPY" class="text-2xl font-bold text-white">0</p>
+                <p class="text-xs text-gray-500 mt-1">HKD: <span id="pendingTotalHKD">0.00</span></p>
+            </div>
+            <!-- 右側：實際支出 -->
+            <div>
+                <p class="text-xs text-gray-400 mb-1">實際支出 (JPY)</p>
+                <p id="spentTotalJPY" class="text-2xl font-bold text-accent-text">0</p>
+                <p class="text-xs text-gray-500 mt-1">HKD: <span id="spentTotalHKD">0.00</span></p>
             </div>
         </div>
 
+        <!-- 篩選區塊 (新增) -->
+        <section class="mb-6 grid grid-cols-2 gap-3">
+            <div>
+                <select id="filterFriend" class="filter-select w-full p-2 rounded-lg text-sm">
+                    <option value="all">所有人</option>
+                    <!-- 動態生成選項 -->
+                </select>
+            </div>
+            <div>
+                <select id="filterCategory" class="filter-select w-full p-2 rounded-lg text-sm">
+                    <option value="all">所有類型</option>
+                    <!-- 動態生成選項 -->
+                </select>
+            </div>
+        </section>
+
         <!-- 匯入與管理區塊 -->
-        <section class="mb-8 p-5 rounded-xl card-bg shadow-2xl">
-            <h2 class="text-xl font-semibold mb-3 border-b border-gray-600 pb-2">資料匯入與控制</h2>
+        <section class="mb-8 p-4 rounded-xl card-bg shadow-xl">
             <div class="flex flex-col space-y-3">
-                
-                <!-- 新增項目按鈕 (新增) -->
-                <button id="addItemBtn" class="bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition duration-200 shadow-md">
-                    <i class="fas fa-plus-circle mr-2"></i> 手動新增代購項目
-                </button>
+                <div class="grid grid-cols-2 gap-3">
+                     <!-- 新增項目按鈕 -->
+                    <button id="addItemBtn" class="bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition duration-200 shadow-md text-sm">
+                        <i class="fas fa-plus-circle mr-1"></i> 手動新增
+                    </button>
+                    <!-- 匯出報告按鈕 (新增) -->
+                    <button id="exportBtn" class="bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition duration-200 shadow-md text-sm">
+                        <i class="fas fa-file-export mr-1"></i> 匯出結算
+                    </button>
+                </div>
 
                 <!-- CSV 匯入按鈕 -->
-                <label for="csvFile" class="flex-grow text-center py-3 rounded-lg font-bold cursor-pointer accent-bg text-color-primary-bg hover:opacity-90 transition duration-200 shadow-md">
-                    <i class="fas fa-file-upload mr-2"></i> 點擊匯入 Google 表單 CSV
+                <label for="csvFile" class="flex-grow text-center py-3 rounded-lg font-bold cursor-pointer accent-bg text-color-primary-bg hover:opacity-90 transition duration-200 shadow-md text-sm">
+                    <i class="fas fa-file-upload mr-2"></i> 匯入 Google 表單 CSV
                 </label>
                 <input type="file" id="csvFile" accept=".csv" class="hidden">
                 
                 <!-- 清除資料按鈕 -->
-                <button id="clearDataBtn" class="bg-red-700 text-white py-3 rounded-lg font-bold hover:bg-red-800 transition duration-200 shadow-md">
-                    <i class="fas fa-database mr-2"></i> 清除所有記錄 (本機儲存)
+                <button id="clearDataBtn" class="bg-red-900/50 text-red-300 py-2 rounded-lg text-xs hover:bg-red-900 transition duration-200">
+                    <i class="fas fa-trash-alt mr-1"></i> 清除所有記錄
                 </button>
             </div>
         </section>
@@ -138,105 +173,116 @@
         <!-- 清單顯示區 -->
         <section class="mb-20">
             <h2 class="text-xl font-semibold mb-4 flex justify-between items-center">
-                待辦/已購項目
-                <span class="text-sm text-gray-400">總數: <span id="itemCount" class="font-bold accent-text">0</span></span>
+                清單列表
+                <span class="text-sm text-gray-400">顯示: <span id="visibleCount" class="font-bold text-white">0</span> / <span id="totalCount">0</span></span>
             </h2>
             <div id="itemList" class="space-y-4">
                 <!-- 代購項目將由 JavaScript 渲染到這裡 -->
                 <p id="emptyListMessage" class="text-center text-gray-500 italic p-6 rounded-lg card-bg hidden">
-                    <i class="fas fa-box-open mr-2"></i> 目前沒有代購項目。請匯入 CSV。
+                    <i class="fas fa-box-open mr-2"></i> 目前沒有符合條件的項目。
                 </p>
             </div>
         </section>
 
     </div>
 
-    <!-- 編輯 Modal 彈出視窗 (預設隱藏) -->
+    <!-- 編輯 Modal -->
     <div id="editModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50 transition-opacity duration-300 hidden">
         <div class="card-bg w-full max-w-md rounded-2xl p-6 shadow-2xl transform scale-100 transition-transform duration-300 max-h-[90vh] overflow-y-auto">
-            <h3 id="modalTitle" class="text-2xl font-bold mb-5 accent-text border-b border-gray-700 pb-2">編輯項目詳情</h3> <!-- 標題動態變更 -->
+            <h3 id="modalTitle" class="text-2xl font-bold mb-5 accent-text border-b border-gray-700 pb-2">編輯項目詳情</h3>
             <form id="editForm" class="space-y-4">
                 
-                <!-- 項目名稱 / 連結 -->
-                <div>
-                    <label for="editName" class="block text-sm font-medium text-gray-400">項目名稱 / 購買物 <span class="text-red-400">*</span></label>
-                    <input type="text" id="editName" required class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
-                </div>
-                
-                <!-- 朋友名稱 -->
-                <div>
-                    <label for="editFriend" class="block text-sm font-medium text-gray-400">朋友名稱 / 填寫人 <span class="text-red-400">*</span></label>
-                    <input type="text" id="editFriend" required class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
-                </div>
-
-                <!-- 類型 -->
-                <div>
-                    <label for="editCategory" class="block text-sm font-medium text-gray-400">類型</label>
-                    <input type="text" id="editCategory" class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg" placeholder="藥妝, 零食, 娃娃, 宅物...">
-                </div>
-                
-                <!-- 數量 -->
-                <div>
-                    <label for="editQuantity" class="block text-sm font-medium text-gray-400">購買量 <span class="text-red-400">*</span></label>
-                    <input type="number" id="editQuantity" required min="1" class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
+                <!-- 基礎資訊 -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label for="editName" class="block text-xs font-medium text-gray-400 mb-1">購買物名稱 <span class="text-red-400">*</span></label>
+                        <input type="text" id="editName" required class="w-full p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
+                    </div>
+                    <!-- 新增備註欄位 -->
+                    <div class="col-span-2">
+                        <label for="editRemark" class="block text-xs font-medium text-gray-400 mb-1">備註 (Remark) - 避免名稱過長</label>
+                        <textarea id="editRemark" rows="2" class="w-full p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg" placeholder="例如：要紅色款，不要包裝..."></textarea>
+                    </div>
+                    <div>
+                        <label for="editFriend" class="block text-xs font-medium text-gray-400 mb-1">填寫人 <span class="text-red-400">*</span></label>
+                        <input type="text" id="editFriend" required class="w-full p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
+                    </div>
+                    <div>
+                        <label for="editCategory" class="block text-xs font-medium text-gray-400 mb-1">類型</label>
+                        <input type="text" id="editCategory" class="w-full p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
+                    </div>
                 </div>
 
-                 <!-- 預計金額(JPY) -->
-                <div>
-                    <label for="editEstimatedPrice" class="block text-sm font-medium text-gray-400">預計金額(JPY)</label>
-                    <!-- 使用 text input 讓 JS 處理千位符號 -->
-                    <input type="text" id="editEstimatedPrice" class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg" inputmode="numeric" placeholder="例如: 1,500">
+                <!-- 預計資訊 -->
+                <div class="p-3 bg-gray-800/50 rounded-xl border border-gray-700">
+                    <p class="text-xs text-gray-500 mb-2 font-bold">預計 / 目標</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="editQuantity" class="block text-xs font-medium text-gray-400 mb-1">預計數量 <span class="text-red-400">*</span></label>
+                            <input type="number" id="editQuantity" required min="1" class="w-full p-2 rounded-lg bg-gray-700 border border-gray-600 focus:border-accent-bg">
+                        </div>
+                        <div>
+                            <label for="editEstimatedPrice" class="block text-xs font-medium text-gray-400 mb-1">預計單價 (JPY)</label>
+                            <input type="text" id="editEstimatedPrice" class="w-full p-2 rounded-lg bg-gray-700 border border-gray-600 focus:border-accent-bg" inputmode="numeric">
+                        </div>
+                    </div>
                 </div>
 
-                <!-- 參考連結 -->
-                <div>
-                    <label for="editReferenceLink" class="block text-sm font-medium text-gray-400">參考連結 或 圖片 URL</label>
-                    <input type="url" id="editReferenceLink" class="w-full mt-1 p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg" placeholder="可選填">
+                <!-- 實際購買資訊 (新增) -->
+                <div class="p-3 bg-green-900/20 rounded-xl border border-green-900/50">
+                    <p class="text-xs text-green-500 mb-2 font-bold"><i class="fas fa-calculator mr-1"></i> 實際結算 (選填)</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="editActualQuantity" class="block text-xs font-medium text-gray-400 mb-1">實際購買量</label>
+                            <input type="number" id="editActualQuantity" min="0" class="w-full p-2 rounded-lg bg-gray-700 border border-gray-600 focus:border-accent-bg" placeholder="如缺貨填 0">
+                        </div>
+                        <div>
+                            <label for="editActualPrice" class="block text-xs font-medium text-gray-400 mb-1">實際單價 (JPY)</label>
+                            <input type="text" id="editActualPrice" class="w-full p-2 rounded-lg bg-gray-700 border border-gray-600 focus:border-accent-bg" inputmode="numeric" placeholder="留空則用預計">
+                        </div>
+                    </div>
                 </div>
 
-                <!-- 參考圖片(上傳) 區塊 -->
-                <div class="border-t border-gray-700 pt-4 mt-4">
-                    <label class="block text-sm font-medium text-gray-400 mb-2">參考圖片 (壓縮為縮圖存入本機)</label>
+                <!-- 連結 -->
+                <div>
+                    <label for="editReferenceLink" class="block text-xs font-medium text-gray-400 mb-1">參考連結</label>
+                    <input type="url" id="editReferenceLink" class="w-full p-3 rounded-xl bg-gray-700 border border-gray-600 focus:border-accent-bg">
+                </div>
+
+                <!-- 圖片上傳 -->
+                <div class="border-t border-gray-700 pt-4">
+                    <label class="block text-xs font-medium text-gray-400 mb-2">圖片記錄</label>
                     <div class="flex items-center space-x-3">
-                        <label for="imageUpload" class="px-4 py-2 text-sm bg-gray-600 rounded-xl cursor-pointer hover:bg-gray-500 transition duration-200">
-                            <i class="fas fa-camera mr-1"></i> 拍照 / 上傳照片
+                        <label for="imageUpload" class="px-4 py-2 text-xs bg-gray-600 rounded-lg cursor-pointer hover:bg-gray-500 transition duration-200">
+                            <i class="fas fa-camera mr-1"></i> 拍照/上傳
                         </label>
-                        <!-- 移除 capture="environment" 以允許使用者選擇檔案或拍照 -->
                         <input type="file" id="imageUpload" accept="image/*" class="hidden">
                         
-                        <button type="button" id="removeImageBtn" class="px-4 py-2 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 transition duration-200 hidden">
-                            <i class="fas fa-trash-alt mr-1"></i> 移除圖片
+                        <button type="button" id="removeImageBtn" class="px-4 py-2 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 hidden">
+                            移除
                         </button>
                     </div>
-                    
-                    <!-- 縮圖預覽 -->
                     <div id="imagePreviewContainer" class="mt-3 hidden">
-                        <!-- 圖片點擊後觸發 openFullImageModal -->
-                        <img id="imageThumbnail" class="w-20 h-20 object-cover rounded-lg border-2 border-accent-bg cursor-pointer transition-opacity hover:opacity-80" alt="Thumbnail Preview">
-                        <!-- Canvas is used for compression, not display -->
+                        <img id="imageThumbnail" class="w-20 h-20 object-cover rounded-lg border-2 border-accent-bg cursor-pointer hover:opacity-80" alt="Thumbnail">
                     </div>
                 </div>
 
-                <!-- 已購買狀態 -->
+                <!-- 狀態 -->
                 <div class="flex items-center pt-2 border-t border-gray-700">
                     <input type="checkbox" id="editPurchased" class="h-5 w-5 text-accent-bg rounded border-gray-500 focus:ring-accent-bg bg-gray-700">
                     <label for="editPurchased" class="ml-3 block text-base font-medium text-gray-300">已完成購買</label>
                 </div>
                 
                 <!-- 操作按鈕 -->
-                <div class="flex justify-end space-x-3 pt-6">
-                    <button type="button" id="closeModalBtn" class="px-5 py-2 text-gray-300 rounded-xl hover:bg-gray-700 transition duration-200">
-                        <i class="fas fa-times mr-1"></i> 取消
-                    </button>
-                    <button type="submit" class="px-5 py-2 accent-bg text-color-primary-bg rounded-xl font-semibold hover:opacity-90 transition duration-200 shadow-lg">
-                        <i class="fas fa-save mr-1"></i> 儲存變更
-                    </button>
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" id="closeModalBtn" class="px-5 py-2 text-gray-300 rounded-xl hover:bg-gray-700 transition duration-200">取消</button>
+                    <button type="submit" class="px-5 py-2 accent-bg text-color-primary-bg rounded-xl font-semibold hover:opacity-90 transition duration-200 shadow-lg">儲存</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- 訊息提示 (取代 alert()) -->
+    <!-- 訊息提示 -->
     <div id="messageBox" class="fixed top-5 right-5 z-50 transition-opacity duration-300 opacity-0 pointer-events-none">
         <div class="bg-gray-800 text-white px-4 py-3 rounded-lg shadow-xl flex items-center">
             <i id="messageIcon" class="mr-2"></i>
@@ -244,7 +290,7 @@
         </div>
     </div>
 
-    <!-- 新增確認 Modal (取代 confirm()) -->
+    <!-- 確認 Modal -->
     <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50 hidden">
         <div class="card-bg w-full max-w-sm rounded-2xl p-6 shadow-2xl">
             <h3 id="confirmTitle" class="text-xl font-bold mb-4 text-red-400"></h3>
@@ -256,7 +302,7 @@
         </div>
     </div>
     
-    <!-- 全屏圖片檢視 Modal (新增) -->
+    <!-- 全屏圖片 Modal -->
     <div id="fullImageModal" class="fixed inset-0 bg-black bg-opacity-95 flex flex-col items-center justify-center p-4 z-[100] fullscreen-modal" onclick="closeFullImageModal()">
         <button onclick="closeFullImageModal(event)" class="absolute top-4 right-4 text-white text-3xl z-[110] hover:text-gray-300 transition">
             <i class="fas fa-times"></i>
@@ -265,23 +311,14 @@
         <p id="fullImageHint" class="absolute bottom-4 text-sm text-gray-400">點擊任意處關閉</p>
     </div>
 
-
     <!-- JavaScript 邏輯 -->
     <script>
-        // --- 匯率與圖片壓縮常量定義 ---
-        const THUMB_MAX_SIZE = 120; // 縮圖最大邊長 (用於清單和編輯預覽)
-        const FULL_IMAGE_MAX_SIZE = 600; // 全屏檢視最大邊長 (提供原圖壓縮版)
-        const THUMB_QUALITY = 0.6; // 縮圖壓縮品質 (低)
-        const FULL_IMAGE_QUALITY = 0.8; // 全屏圖壓縮品質 (中高)
-        const HKD_RATE = 0.06; // JPY 兌換 HKD 匯率 (JPY * 0.06)
+        const THUMB_MAX_SIZE = 120;
+        const FULL_IMAGE_MAX_SIZE = 800; // 稍微加大全屏圖尺寸
+        const THUMB_QUALITY = 0.6;
+        const FULL_IMAGE_QUALITY = 0.8;
+        const HKD_RATE = 0.06;
 
-        /**
-         * 壓縮圖片並轉換為 Base64 數據。
-         * @param {File} file - 原始圖片檔案。
-         * @param {number} maxSize - 圖片最大邊長。
-         * @param {number} quality - JPEG 壓縮品質 (0.0 to 1.0)。
-         * @returns {Promise<string>} Base64 格式的圖片數據。
-         */
         function resizeImageAndConvertToBase64(file, maxSize, quality) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -291,112 +328,101 @@
                         const canvas = document.createElement('canvas');
                         let width = img.width;
                         let height = img.height;
-
-                        // 計算縮放比例
                         if (width > maxSize || height > maxSize) {
                              if (width > height) {
-                                height *= maxSize / width;
-                                width = maxSize;
+                                height *= maxSize / width; width = maxSize;
                             } else {
-                                width *= maxSize / height;
-                                height = maxSize;
+                                width *= maxSize / height; height = maxSize;
                             }
                         }
-                        
-                        canvas.width = width;
-                        canvas.height = height;
-                        
+                        canvas.width = width; canvas.height = height;
                         const ctx = canvas.getContext('2d');
-                        // 確保背景為白色，防止透明區域變黑
-                        ctx.fillStyle = '#1A1A2E'; // 使用主題背景色作為填充
-                        ctx.fillRect(0, 0, width, height);
+                        ctx.fillStyle = '#1A1A2E'; ctx.fillRect(0, 0, width, height);
                         ctx.drawImage(img, 0, 0, width, height);
-
-                        // 轉換為 Base64 
-                        const base64 = canvas.toDataURL('image/jpeg', quality);
-                        resolve(base64);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
                     };
-                    img.onerror = () => reject('Image loading error');
+                    img.onerror = () => reject('Image load error');
                     img.src = event.target.result;
                 };
-                reader.onerror = () => reject('FileReader error');
+                reader.onerror = () => reject('File read error');
                 reader.readAsDataURL(file);
             });
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Elements
             const itemList = document.getElementById('itemList');
             const csvFile = document.getElementById('csvFile');
             const clearDataBtn = document.getElementById('clearDataBtn');
-            const addItemBtn = document.getElementById('addItemBtn'); // 新增
+            const addItemBtn = document.getElementById('addItemBtn');
+            const exportBtn = document.getElementById('exportBtn'); // New
+            
+            // Filters
+            const filterFriend = document.getElementById('filterFriend'); // New
+            const filterCategory = document.getElementById('filterCategory'); // New
+            const visibleCountSpan = document.getElementById('visibleCount');
+            const totalCountSpan = document.getElementById('totalCount');
+
+            // Modals & Forms
             const editModal = document.getElementById('editModal');
             const closeModalBtn = document.getElementById('closeModalBtn');
             const editForm = document.getElementById('editForm');
-            const itemCountSpan = document.getElementById('itemCount');
             const emptyListMessage = document.getElementById('emptyListMessage');
             const messageBox = document.getElementById('messageBox');
             const messageText = document.getElementById('messageText');
             const messageIcon = document.getElementById('messageIcon');
-            const modalTitle = document.getElementById('modalTitle'); // 新增
+            const modalTitle = document.getElementById('modalTitle');
             
-            // 總金額顯示元素
-            const totalAmountDisplayJPY = document.getElementById('totalAmountJPY');
-            const totalAmountDisplayHKD = document.getElementById('totalAmountHKD'); 
+            // Totals
+            const pendingTotalJPY = document.getElementById('pendingTotalJPY');
+            const pendingTotalHKD = document.getElementById('pendingTotalHKD');
+            const spentTotalJPY = document.getElementById('spentTotalJPY');
+            const spentTotalHKD = document.getElementById('spentTotalHKD');
 
-            // Confirm Modal Elements
+            // Confirm Modal
             const confirmModal = document.getElementById('confirmModal');
             const confirmTitle = document.getElementById('confirmTitle');
             const confirmMessage = document.getElementById('confirmMessage');
             const confirmConfirmBtn = document.getElementById('confirmConfirmBtn');
             const confirmCancelBtn = document.getElementById('confirmCancelBtn');
             
-            // Full Image Modal Elements
+            // Full Image
             const fullImageModal = document.getElementById('fullImageModal');
             const fullImageDisplay = document.getElementById('fullImageDisplay');
 
-            // Image Edit Elements
+            // Image Edit
             const imageUpload = document.getElementById('imageUpload');
             const removeImageBtn = document.getElementById('removeImageBtn');
             const imageThumbnail = document.getElementById('imageThumbnail');
             const imagePreviewContainer = document.getElementById('imagePreviewContainer');
             
             let items = loadItems();
-            let currentEditIndex = null; // 編輯模式下的索引
-            let confirmResolver = null; // Promise resolver for confirmModal
+            let currentEditIndex = null;
+            let confirmResolver = null;
 
             // --- Full Image Modal Functions ---
-            
-            // 點擊清單中的圖片會調用此函數，使用 fullBase64 
             window.openFullImageModal = (base64Url, event) => {
                 if(event) event.stopPropagation();
                 fullImageDisplay.src = base64Url;
                 fullImageModal.classList.add('active');
-                document.body.style.overflow = 'hidden'; // 禁用背景滾動
+                document.body.style.overflow = 'hidden';
             }
 
             window.closeFullImageModal = (event) => {
                 if(event) event.stopPropagation();
                 fullImageModal.classList.remove('active');
-                document.body.style.overflow = ''; // 恢復背景滾動
+                document.body.style.overflow = '';
             }
 
-            // 確保編輯 Modal 內的預覽縮圖也能點擊放大
             imageThumbnail.addEventListener('click', (event) => {
-                // 點擊縮圖時，應該用暫存的 fullBase64 數據來放大
                 const fullBase64 = imageThumbnail.dataset.fullBase64;
-                if (fullBase64) {
-                    openFullImageModal(fullBase64, event);
-                }
+                if (fullBase64) openFullImageModal(fullBase64, event);
             });
 
-
             // --- Utility Functions ---
-
-            // 替代原生 alert() 的訊息提示
             function showMessage(text, type = 'success') {
                 messageText.textContent = text;
-                messageBox.className = 'fixed top-5 right-5 z-50 transition-opacity duration-300 opacity-0 pointer-events-none'; // Reset classes
-                
+                messageBox.className = 'fixed top-5 right-5 z-50 transition-opacity duration-300 opacity-0 pointer-events-none';
                 if (type === 'success') {
                     messageIcon.className = 'fas fa-check-circle text-green-400';
                     messageBox.classList.add('bg-green-700/90');
@@ -407,29 +433,16 @@
                     messageIcon.className = 'fas fa-info-circle text-blue-400';
                     messageBox.classList.add('bg-gray-800/90');
                 }
-
-                // Show
-                setTimeout(() => {
-                    messageBox.classList.remove('opacity-0');
-                    messageBox.classList.add('opacity-100');
-                }, 10);
-
-                // Hide after 3 seconds
-                setTimeout(() => {
-                    messageBox.classList.remove('opacity-100');
-                    messageBox.classList.add('opacity-0');
-                }, 3000);
+                setTimeout(() => { messageBox.classList.remove('opacity-0'); messageBox.classList.add('opacity-100'); }, 10);
+                setTimeout(() => { messageBox.classList.remove('opacity-100'); messageBox.classList.add('opacity-0'); }, 3000);
             }
             
-            // 替代原生 confirm() 的 Modal
             function showConfirm(title, message, confirmText = '確定', confirmColor = 'bg-red-600') {
                 return new Promise(resolve => {
                     confirmTitle.textContent = title;
                     confirmMessage.textContent = message;
                     confirmConfirmBtn.textContent = confirmText;
-                    // Ensure Tailwind class works on the button
                     confirmConfirmBtn.className = `px-4 py-2 ${confirmColor} text-white rounded-lg font-semibold hover:opacity-80 transition duration-200`;
-                    
                     confirmModal.classList.remove('hidden');
                     confirmResolver = resolve;
                 });
@@ -437,62 +450,131 @@
 
             confirmConfirmBtn.addEventListener('click', () => {
                 confirmModal.classList.add('hidden');
-                if (confirmResolver) {
-                    confirmResolver(true);
-                    confirmResolver = null;
-                }
+                if (confirmResolver) { confirmResolver(true); confirmResolver = null; }
             });
 
             confirmCancelBtn.addEventListener('click', () => {
                 confirmModal.classList.add('hidden');
-                if (confirmResolver) {
-                    confirmResolver(false);
-                    confirmResolver = null;
-                }
+                if (confirmResolver) { confirmResolver(false); confirmResolver = null; }
             });
             
-            /**
-             * 計算所有未購買項目的總金額並更新顯示。
-             */
-            function calculateAndDisplayTotal() {
-                const totalJPY = items.reduce((sum, item) => {
-                    if (!item.purchased) {
-                        // 確保 item.estimatedPrice 和 item.quantity 是有效數字
-                        const price = parseFloat(item.estimatedPrice) || 0;
-                        const qty = parseInt(item.quantity) || 0;
-                        return sum + (price * qty);
-                    }
-                    return sum;
-                }, 0);
-                
-                const totalHKD = totalJPY * HKD_RATE;
+            // --- Totals Calculation (Updated) ---
+            function calculateAndDisplayTotals() {
+                let pTotal = 0; // Pending (Estimated)
+                let sTotal = 0; // Spent (Actual)
 
-                // 格式化總金額
-                totalAmountDisplayJPY.textContent = totalJPY.toLocaleString('en-US', { maximumFractionDigits: 0 }); 
-                totalAmountDisplayHKD.textContent = totalHKD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); // HKD 顯示兩位小數
+                items.forEach(item => {
+                    const estimatedPrice = parseFloat(item.estimatedPrice) || 0;
+                    const estimatedQty = parseInt(item.quantity) || 0;
+                    
+                    // Actual logic: if actual price is missing, use estimated. If actual qty is missing, use estimated qty (IF purchased).
+                    // Logic requirement: "Actual purchase amount". Usually implies purchased items.
+                    const actualPrice = (item.actualPrice !== undefined && item.actualPrice !== "" && item.actualPrice !== null) ? parseFloat(item.actualPrice) : estimatedPrice;
+                    const actualQty = (item.actualQuantity !== undefined && item.actualQuantity !== "" && item.actualQuantity !== null) ? parseInt(item.actualQuantity) : estimatedQty;
+
+                    if (!item.purchased) {
+                        pTotal += estimatedPrice * estimatedQty;
+                    } else {
+                        // For purchased items, count towards spent total
+                        sTotal += actualPrice * actualQty;
+                    }
+                });
                 
-                // 更新項目計數
-                itemCountSpan.textContent = items.length;
+                // Display Pending
+                pendingTotalJPY.textContent = pTotal.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                pendingTotalHKD.textContent = (pTotal * HKD_RATE).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                
+                // Display Spent
+                spentTotalJPY.textContent = sTotal.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                spentTotalHKD.textContent = (sTotal * HKD_RATE).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                
+                totalCountSpan.textContent = items.length;
             }
 
+            // --- Filter Logic (New) ---
+            function updateFilterOptions() {
+                // Get unique Friends and Categories
+                const friends = [...new Set(items.map(i => i.friend))].sort();
+                const categories = [...new Set(items.map(i => i.category || '其他'))].sort();
+
+                // Save current selection to restore if possible
+                const currentFriend = filterFriend.value;
+                const currentCategory = filterCategory.value;
+
+                // Populate Friend Filter
+                filterFriend.innerHTML = '<option value="all">所有人</option>';
+                friends.forEach(f => {
+                    const option = document.createElement('option');
+                    option.value = f;
+                    option.textContent = f;
+                    filterFriend.appendChild(option);
+                });
+                if (friends.includes(currentFriend)) filterFriend.value = currentFriend;
+
+                // Populate Category Filter
+                filterCategory.innerHTML = '<option value="all">所有類型</option>';
+                categories.forEach(c => {
+                    const option = document.createElement('option');
+                    option.value = c;
+                    option.textContent = c;
+                    filterCategory.appendChild(option);
+                });
+                if (categories.includes(currentCategory)) filterCategory.value = currentCategory;
+            }
+
+            function filterItems() {
+                const selectedFriend = filterFriend.value;
+                const selectedCategory = filterCategory.value;
+                
+                const itemDivs = document.querySelectorAll('.item-card');
+                let visible = 0;
+
+                itemDivs.forEach(div => {
+                    const index = div.dataset.index;
+                    const item = items[index];
+                    
+                    const matchFriend = selectedFriend === 'all' || item.friend === selectedFriend;
+                    const matchCategory = selectedCategory === 'all' || (item.category || '其他') === selectedCategory;
+
+                    if (matchFriend && matchCategory) {
+                        div.classList.remove('hidden');
+                        visible++;
+                    } else {
+                        div.classList.add('hidden');
+                    }
+                });
+                
+                visibleCountSpan.textContent = visible;
+                
+                if (visible === 0 && items.length > 0) {
+                    emptyListMessage.classList.remove('hidden');
+                    emptyListMessage.textContent = "沒有符合篩選條件的項目";
+                } else if (items.length === 0) {
+                    emptyListMessage.classList.remove('hidden');
+                    emptyListMessage.textContent = "目前沒有代購項目。請匯入 CSV 或手動新增。";
+                } else {
+                    emptyListMessage.classList.add('hidden');
+                }
+            }
 
             // --- Data Persistence ---
-
             function loadItems() {
                 try {
                     const storedItems = localStorage.getItem('japanVibeList');
-                    // 檢查舊數據結構並進行遷移
                     const loadedItems = storedItems ? JSON.parse(storedItems) : [];
                     return loadedItems.map(item => ({
                         ...item,
                         thumbBase64: item.thumbBase64 || item.imageBase64 || '',
                         fullBase64: item.fullBase64 || item.imageBase64 || '',
-                        timestamp: item.timestamp || item.id, // 新增 timestamp 處理，舊數據使用 id
-                        // 移除舊欄位
+                        timestamp: item.timestamp || item.id,
+                        // New fields defaults
+                        remark: item.remark || '',
+                        actualQuantity: item.actualQuantity !== undefined ? item.actualQuantity : '',
+                        actualPrice: item.actualPrice !== undefined ? item.actualPrice : '',
                         imageBase64: undefined 
                     }));
                 } catch (e) {
-                    console.error("Error loading items from localStorage:", e);
+                    console.error("Error loading items:", e);
                     return [];
                 }
             }
@@ -500,116 +582,89 @@
             function saveItems() {
                 try {
                     localStorage.setItem('japanVibeList', JSON.stringify(items));
-                    renderItems(); // 儲存後重新渲染清單
-                    calculateAndDisplayTotal(); // 重新計算總金額
+                    updateFilterOptions(); // Update filters when data changes
+                    renderItems();
+                    calculateAndDisplayTotals();
                 } catch (e) {
-                    console.error("Error saving items to localStorage:", e);
+                    console.error("Error saving items:", e);
                     showMessage('儲存資料失敗！', 'error');
                 }
             }
 
-            // --- CSV Parsing ---
-            
-            // 更可靠的 CSV 解析函數，處理引號和逗號
+            // --- CSV Import ---
             function parseCSVLine(text) {
                 const result = [];
                 let current = '';
                 let inQuotes = false;
-
                 for (let i = 0; i < text.length; i++) {
                     const char = text[i];
                     if (char === '"') {
                         if (i + 1 < text.length && text[i + 1] === '"') {
-                            current += '"'; // Escaped double quote ""
-                            i++;
-                        } else {
-                            inQuotes = !inQuotes; // Toggle quotes state
-                        }
+                            current += '"'; i++;
+                        } else { inQuotes = !inQuotes; }
                     } else if (char === ',' && !inQuotes) {
-                        result.push(current.trim().replace(/^"|"$/g, ''));
-                        current = '';
-                    } else {
-                        current += char;
-                    }
+                        result.push(current.trim().replace(/^"|"$/g, '')); current = '';
+                    } else { current += char; }
                 }
                 result.push(current.trim().replace(/^"|"$/g, ''));
                 return result;
             }
 
             function parseCSV(csvText) {
-                // 1. 移除可能的 Byte Order Mark (BOM)
-                if (csvText.charCodeAt(0) === 0xFEFF) {
-                    csvText = csvText.slice(1);
-                }
-
+                if (csvText.charCodeAt(0) === 0xFEFF) csvText = csvText.slice(1);
                 const lines = csvText.trim().split('\n');
-                if (lines.length < 2) {
-                    showMessage('CSV 格式錯誤或內容空白。', 'error');
-                    return;
-                }
+                if (lines.length < 2) { showMessage('CSV 格式錯誤', 'error'); return; }
 
-                // 使用第一行標題來動態定位欄位
                 const headers = parseCSVLine(lines[0]).map(h => h.trim());
                 const dataLines = lines.slice(1);
                 
-                // 2. 強化 findIndex 邏輯：將 header 和 keyword 進行「去空格+轉小寫」正規化後再進行包含檢查，提高容錯率
                 const findIndex = (keywords) => headers.findIndex(h => {
-                    const normalizedHeader = h.replace(/\s/g, '').toLowerCase(); // 移除所有空格
+                    const normalizedHeader = h.replace(/\s/g, '').toLowerCase();
                     return keywords.some(k => normalizedHeader.includes(k.replace(/\s/g, '').toLowerCase()));
                 });
 
-                // 根據使用者提供的 CSV 標題調整關鍵字列表
                 const itemNameIndex = findIndex(['購買物', '項目名稱', 'Item Name', '連結', 'Item']);
                 const friendNameIndex = findIndex(['填寫人', '朋友名稱', 'Friend Name', '姓名', 'Name']);
                 const quantityIndex = findIndex(['購買量', '數量', 'Quantity']);
                 const categoryIndex = findIndex(['類型', 'Category']); 
                 const priceIndex = findIndex(['預計金額(JPY)', 'Estimated Price', '金額']); 
                 const linkIndex = findIndex(['參考連結 或 圖片', '參考連結', 'Reference Link', '連結', 'URL']); 
-                const timestampIndex = findIndex(['時間戳記', 'Timestamp']); // 新增時間戳記索引
+                const timestampIndex = findIndex(['時間戳記', 'Timestamp']);
                 
-                if (itemNameIndex === -1 || friendNameIndex === -1 || quantityIndex === -1 || categoryIndex === -1 || priceIndex === -1 || timestampIndex === -1) {
-                    console.error('Failed to identify required columns. Detected headers:', headers);
-                    showMessage('CSV 標題行無法識別。請確認包含: 時間戳記, 購買物, 填寫人, 購買量, 類型, 預計金額(JPY)。', 'error');
-                    return;
+                if (itemNameIndex === -1 || friendNameIndex === -1 || quantityIndex === -1 || categoryIndex === -1 || priceIndex === -1) {
+                    showMessage('CSV 標題行無法識別。', 'error'); return;
                 }
 
                 let newItemsCount = 0;
-                let existingItems = new Set(items.map(item => `${item.name}-${item.friend}`)); // 避免完全重複匯入
+                let existingItems = new Set(items.map(item => `${item.name}-${item.friend}`));
 
                 dataLines.forEach(line => {
                     const cols = parseCSVLine(line);
-                    
-                    if (cols.length > Math.max(itemNameIndex, friendNameIndex, quantityIndex, categoryIndex, priceIndex, linkIndex || 0, timestampIndex)) {
+                    if (cols.length > Math.max(itemNameIndex, friendNameIndex, quantityIndex)) {
                         const name = cols[itemNameIndex].trim();
                         const friend = cols[friendNameIndex].trim();
                         const quantity = parseInt(cols[quantityIndex].trim());
-                        const category = cols[categoryIndex].trim() || '其他'; 
-                        
-                        // 處理金額：移除千位符號 (,) 並解析
-                        const priceStr = cols[priceIndex].trim().replace(/,/g, '');
-                        const estimatedPrice = parseInt(priceStr) || 0; 
-
-                        const referenceLink = linkIndex !== -1 ? cols[linkIndex].trim() : ''; 
-                        
-                        // 處理時間戳記並轉換為 Unix Time (毫秒)
-                        const timestampStr = cols[timestampIndex].trim();
-                        const timestamp = Date.parse(timestampStr) || Date.now(); // 轉換失敗則使用當前時間
+                        const category = categoryIndex !== -1 ? (cols[categoryIndex].trim() || '其他') : '其他';
+                        const priceStr = priceIndex !== -1 ? cols[priceIndex].trim().replace(/,/g, '') : '0';
+                        const estimatedPrice = parseInt(priceStr) || 0;
+                        const referenceLink = linkIndex !== -1 ? cols[linkIndex].trim() : '';
+                        const timestampStr = timestampIndex !== -1 ? cols[timestampIndex].trim() : '';
+                        const timestamp = Date.parse(timestampStr) || Date.now();
                         
                         const key = `${name}-${friend}`;
 
                         if (name && friend && !isNaN(quantity) && quantity > 0 && !existingItems.has(key)) {
                             items.push({
                                 id: Date.now() + Math.random(), 
-                                timestamp: timestamp, // 儲存時間戳記
+                                timestamp: timestamp,
                                 name: name,
                                 friend: friend,
                                 quantity: quantity,
                                 category: category, 
                                 estimatedPrice: estimatedPrice, 
                                 referenceLink: referenceLink, 
-                                thumbBase64: '', 
-                                fullBase64: '',  
-                                purchased: false
+                                thumbBase64: '', fullBase64: '', purchased: false,
+                                remark: '', actualQuantity: '', actualPrice: '' // New fields
                             });
                             existingItems.add(key);
                             newItemsCount++;
@@ -619,345 +674,302 @@
 
                 saveItems();
                 showMessage(`成功匯入 ${newItemsCount} 個項目！`, 'success');
-                csvFile.value = ''; // Reset input
+                csvFile.value = '';
+            }
+
+            // --- Export CSV (New) ---
+            function exportCSV() {
+                if (items.length === 0) { showMessage('沒有資料可匯出', 'error'); return; }
+
+                // Define headers
+                const headers = ['時間戳記', '填寫人', '類型', '購買物', '備註', '預計數量', '實際購買量', '預計單價(JPY)', '實際單價(JPY)', '小計(JPY)', '小計(HKD)', '狀態'];
+                
+                // BOM for UTF-8 in Excel
+                let csvContent = "\uFEFF"; 
+                csvContent += headers.join(',') + "\n";
+
+                items.forEach(item => {
+                    const date = item.timestamp ? new Date(item.timestamp).toLocaleDateString('zh-TW') : '';
+                    
+                    const estPrice = parseFloat(item.estimatedPrice) || 0;
+                    const estQty = parseInt(item.quantity) || 0;
+                    
+                    const actPrice = (item.actualPrice !== "" && item.actualPrice !== null) ? parseFloat(item.actualPrice) : estPrice;
+                    const actQty = (item.actualQuantity !== "" && item.actualQuantity !== null) ? parseInt(item.actualQuantity) : (item.purchased ? estQty : 0);
+                    
+                    const subtotalJPY = actPrice * actQty;
+                    const subtotalHKD = (subtotalJPY * HKD_RATE).toFixed(2);
+                    const status = item.purchased ? '已購' : '未購';
+
+                    // Escape quotes and commas
+                    const escape = (text) => `"${String(text).replace(/"/g, '""')}"`;
+
+                    const row = [
+                        escape(date),
+                        escape(item.friend),
+                        escape(item.category),
+                        escape(item.name),
+                        escape(item.remark || ''),
+                        escape(estQty),
+                        escape(actQty),
+                        escape(estPrice),
+                        escape(actPrice),
+                        escape(subtotalJPY),
+                        escape(subtotalHKD),
+                        escape(status)
+                    ];
+                    csvContent += row.join(',') + "\n";
+                });
+
+                // Create download link
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `日本代購結算報告_${new Date().toLocaleDateString('zh-TW')}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             }
             
-            // --- Event Listeners for Data Management ---
-
+            // --- Event Listeners ---
             csvFile.addEventListener('change', (event) => {
                 const file = event.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
                 reader.onload = (e) => parseCSV(e.target.result);
-                reader.onerror = () => showMessage('讀取檔案失敗。', 'error');
                 reader.readAsText(file, 'UTF-8');
             });
 
             clearDataBtn.addEventListener('click', async () => {
-                const confirmed = await showConfirm(
-                    '🚨 永久清除警告',
-                    '確定要清除所有代購記錄嗎？此操作無法撤銷，資料將永久遺失！',
-                    '永久清除'
-                );
-                if (confirmed) {
-                    items = [];
-                    saveItems();
-                    showMessage('所有資料已清除。', 'error');
+                if (await showConfirm('🚨 清除警告', '確定要清除所有記錄嗎？', '永久清除')) {
+                    items = []; saveItems(); showMessage('已清除所有資料', 'error');
                 }
             });
             
-            // 新增：處理手動新增按鈕點擊事件
-            addItemBtn.addEventListener('click', () => {
-                openEditModal(null); // 傳遞 null 表示這是新增模式
-            });
+            addItemBtn.addEventListener('click', () => openEditModal(null));
+            
+            exportBtn.addEventListener('click', exportCSV); // Export Listener
 
+            filterFriend.addEventListener('change', filterItems);
+            filterCategory.addEventListener('change', filterItems);
 
-            // --- Rendering and Item Operations ---
-
+            // --- Rendering ---
             function renderItems() {
                 itemList.innerHTML = '';
                 
-                // 排序邏輯調整：
-                // 1. Primary Sort: purchased (未購在前 - false:0, true:1)
-                // 2. Secondary Sort: timestamp (最新在前 - descending)
+                // Sort
                 items.sort((a, b) => {
-                    if (a.purchased !== b.purchased) {
-                        return a.purchased - b.purchased; // false (0) comes before true (1)
-                    }
-                    return b.timestamp - a.timestamp; // Newest first
+                    if (a.purchased !== b.purchased) return a.purchased - b.purchased;
+                    return b.timestamp - a.timestamp;
                 });
-
-                if (items.length === 0) {
-                    emptyListMessage.classList.remove('hidden');
-                } else {
-                    emptyListMessage.classList.add('hidden');
-                }
 
                 items.forEach((item, index) => {
                     const hasImage = item.thumbBase64 || item.fullBase64;
                     const itemDiv = document.createElement('div');
                     
-                    // 計算單項總金額
-                    const itemTotalJPY = item.estimatedPrice * item.quantity;
-                    const itemTotalHKD = itemTotalJPY * HKD_RATE; // JPY * 0.06
+                    // Display Calculation
+                    const estPrice = parseFloat(item.estimatedPrice) || 0;
+                    const actPrice = (item.actualPrice !== "" && item.actualPrice !== null) ? parseFloat(item.actualPrice) : estPrice;
+                    const finalPrice = item.purchased ? actPrice : estPrice;
                     
-                    // 根據是否有 Base64 圖片調整佈局
+                    const estQty = parseInt(item.quantity) || 0;
+                    const actQty = (item.actualQuantity !== "" && item.actualQuantity !== null) ? parseInt(item.actualQuantity) : (item.purchased ? estQty : 0);
+                    // 如果已購買但沒填實際數量，顯示預設數量，如果是未購則顯示預計
+                    const displayQty = item.purchased && item.actualQuantity !== "" ? actQty : estQty;
+                    
+                    const itemTotalJPY = finalPrice * displayQty;
+                    
+                    // Layout
                     const itemLayoutClass = hasImage ? 'grid grid-cols-5 gap-3' : 'flex justify-between items-center';
-                    
-                    itemDiv.className = `p-4 rounded-xl shadow-lg transition duration-300 card-bg border-l-4 border-gray-600 ${item.purchased ? 'item-purchased success-border' : 'border-accent-bg'} ${itemLayoutClass}`;
+                    itemDiv.className = `item-card p-4 rounded-xl shadow-lg transition duration-300 card-bg border-l-4 border-gray-600 ${item.purchased ? 'item-purchased success-border' : 'border-accent-bg'} ${itemLayoutClass}`;
                     itemDiv.dataset.index = index;
 
-                    // 點擊事件：如果存在圖片，讓圖片區域可點擊
                     const imageElement = hasImage ? `
                         <div class="col-span-1 ml-auto flex-shrink-0 w-12 h-12 overflow-hidden rounded-md border-2 border-gray-600 cursor-pointer" onclick="openFullImageModal('${item.fullBase64 || item.thumbBase64}', event)">
-                            <img src="${item.thumbBase64 || item.fullBase64}" alt="Thumbnail" class="w-full h-full object-cover">
-                        </div>
-                    ` : '';
+                            <img src="${item.thumbBase64 || item.fullBase64}" alt="Thumb" class="w-full h-full object-cover">
+                        </div>` : '';
                     
-                    // 顯示時間戳記 (簡化顯示)
                     const date = item.timestamp ? new Date(item.timestamp).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) : 'N/A';
-
+                    
+                    // Actual info badge
+                    const actualBadge = (item.purchased && (item.actualPrice || item.actualQuantity)) 
+                        ? `<span class="text-xs bg-green-900/50 text-green-300 px-1 rounded ml-1 border border-green-700">實</span>` 
+                        : '';
+                    
+                    // Remark block
+                    const remarkBlock = item.remark 
+                        ? `<div class="mt-1 text-xs text-gray-400 bg-gray-800 p-2 rounded border border-gray-700"><i class="fas fa-sticky-note mr-1 text-gray-500"></i>${item.remark}</div>` 
+                        : '';
 
                     const content = `
-                        <!-- 左側內容 (佔 4/5 欄或 flex-grow) -->
                         <div class="${hasImage ? 'col-span-4' : 'flex-grow min-w-0 pr-3'}">
-                            <p class="text-lg font-bold item-name whitespace-normal break-words">${item.name}</p>
+                            <p class="text-lg font-bold item-name whitespace-normal break-words">${item.name} ${actualBadge}</p>
+                            ${remarkBlock}
                             
-                            <p class="text-sm text-gray-400 mt-1 space-x-2">
-                                <span class="text-xs text-gray-500"><i class="fas fa-clock mr-1"></i> ${date}</span>
+                            <p class="text-sm text-gray-400 mt-2 space-x-2">
+                                <span class="text-xs text-gray-500"><i class="fas fa-clock mr-1"></i>${date}</span>
                                 <span class="mx-1 text-gray-600">|</span> 
-                                <span class="text-base text-gray-300"><i class="fas fa-user-tag mr-1"></i> ${item.friend} </span>
-                                <span class="mx-1 text-gray-600">|</span> 
-                                <span class="text-base text-gray-300"><i class="fas fa-hashtag mr-1"></i> ${item.quantity}</span>
+                                <span class="text-base text-gray-300"><i class="fas fa-user-tag mr-1"></i>${item.friend}</span>
                             </p>
 
-                            <!-- 類型與價格 (已新增 HKD 顯示) -->
                             <p class="text-xs text-gray-400 mt-2 flex items-center flex-wrap">
-                                <span class="font-semibold text-gray-300 mr-3"><i class="fas fa-bookmark mr-1"></i> ${item.category || 'N/A'}</span>
+                                <span class="font-semibold text-gray-300 mr-3"><i class="fas fa-bookmark mr-1"></i>${item.category || 'N/A'}</span>
                                 <span class="font-semibold text-accent-text mr-3">
-                                    <i class="fas fa-yen-sign mr-1"></i> ${itemTotalJPY.toLocaleString('en-US', { maximumFractionDigits: 0 })} JPY
+                                    <i class="fas fa-hashtag mr-1"></i>${displayQty} x ${finalPrice.toLocaleString()} = ${itemTotalJPY.toLocaleString()} JPY
                                 </span>
-                                <span class="font-semibold text-gray-300">
-                                    <i class="fas fa-dollar-sign mr-1"></i> ${itemTotalHKD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} HKD
-                                </span>
-                            </p>
-
-                            <!-- 連結與圖片標記 -->
-                            <p class="text-xs mt-2 flex items-center flex-wrap">
-                                ${item.referenceLink ? `
-                                    <a href="${item.referenceLink}" target="_blank" class="text-blue-400 hover:text-blue-300 transition duration-200 font-medium mr-3 inline-flex items-center">
-                                        <i class="fas fa-external-link-alt mr-1"></i> 連結
-                                    </a>` : ''}
-
-                                ${hasImage ? `
-                                    <span class="text-green-400 font-medium inline-flex items-center">
-                                        <i class="fas fa-image mr-1"></i> 圖片已存 (點擊縮圖放大)
-                                    </span>` : ''}
                             </p>
                             
-                            ${item.purchased ? '<span class="text-xs font-semibold success-text mt-2 inline-block"><i class="fas fa-check-circle mr-1"></i> 已購買</span>' : ''}
+                            <p class="text-xs mt-2 flex items-center flex-wrap">
+                                ${item.referenceLink ? `<a href="${item.referenceLink}" target="_blank" class="text-blue-400 hover:text-blue-300 mr-3 font-medium"><i class="fas fa-link mr-1"></i>連結</a>` : ''}
+                                ${hasImage ? `<span class="text-green-400 font-medium"><i class="fas fa-image mr-1"></i>圖片</span>` : ''}
+                            </p>
+                            ${item.purchased ? '<span class="text-xs font-semibold success-text mt-2 inline-block"><i class="fas fa-check-circle mr-1"></i>已購買</span>' : ''}
                         </div>
-
-                        <!-- 縮圖 (佔 1/5 欄) -->
                         ${imageElement}
-
-                        <!-- 右側操作按鈕 (在 flex 佈局中放置最右邊，在 grid 佈局中放在下方) -->
                         <div class="${hasImage ? 'col-span-5 pt-3 border-t border-gray-700 mt-3 flex justify-end' : 'flex flex-col space-y-2 ml-3 flex-shrink-0'}">
-                            <!-- 標記按鈕 (大) -->
-                            <button class="toggle-purchased-btn w-10 h-10 rounded-full flex items-center justify-center transition duration-200 shadow-md ${item.purchased ? 'bg-success-text hover:bg-green-700' : 'accent-bg hover:opacity-80'} ${hasImage ? 'mr-3' : ''}" 
-                                data-index="${index}" title="${item.purchased ? '標記為未購' : '標記為已購'}">
+                            <button class="toggle-purchased-btn w-10 h-10 rounded-full flex items-center justify-center transition duration-200 shadow-md ${item.purchased ? 'bg-success-text hover:bg-green-700' : 'accent-bg hover:opacity-80'} ${hasImage ? 'mr-3' : ''}" data-index="${index}">
                                 <i class="fas ${item.purchased ? 'fa-undo' : 'fa-shopping-basket'} text-white text-base"></i>
                             </button>
-                            
-                            <!-- 編輯/刪除 (小) -->
                             <div class="flex space-x-2">
-                                <button class="edit-btn w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition duration-200" data-index="${index}" title="編輯">
-                                    <i class="fas fa-pen text-xs"></i>
-                                </button>
-                                <button class="delete-btn w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-700 transition duration-200" data-index="${index}" title="刪除">
-                                    <i class="fas fa-trash text-xs"></i>
-                                </button>
+                                <button class="edit-btn w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700" data-index="${index}"><i class="fas fa-pen text-xs"></i></button>
+                                <button class="delete-btn w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-700" data-index="${index}"><i class="fas fa-trash text-xs"></i></button>
                             </div>
                         </div>
                     `;
                     itemDiv.innerHTML = content;
                     itemList.appendChild(itemDiv);
                 });
+                
+                // Apply filters immediately after render
+                filterItems();
             }
 
-            // Delegated Event Listener for Item Actions
+            // --- Handlers ---
             itemList.addEventListener('click', (event) => {
                 const target = event.target.closest('button');
                 if (!target) return;
-
                 const index = parseInt(target.dataset.index);
-
-                if (target.classList.contains('toggle-purchased-btn')) {
-                    togglePurchased(index);
-                } else if (target.classList.contains('edit-btn')) {
-                    openEditModal(index);
-                } else if (target.classList.contains('delete-btn')) {
-                    deleteItem(index);
-                }
+                if (target.classList.contains('toggle-purchased-btn')) togglePurchased(index);
+                else if (target.classList.contains('edit-btn')) openEditModal(index);
+                else if (target.classList.contains('delete-btn')) deleteItem(index);
             });
 
             function togglePurchased(index) {
                 items[index].purchased = !items[index].purchased;
                 saveItems();
-                showMessage(items[index].purchased ? '項目已標記為 [已購買]！' : '項目已標記為 [待購買]！', 'info');
+                showMessage(items[index].purchased ? '已標記購買' : '標記未購', 'info');
             }
 
             async function deleteItem(index) {
-                const name = items[index].name;
-                const confirmed = await showConfirm(
-                    '⚠️ 刪除確認',
-                    `確定要刪除「${name}」的記錄嗎？`,
-                    '刪除',
-                    'bg-red-600'
-                );
-                if (confirmed) {
-                    items.splice(index, 1);
-                    saveItems();
-                    showMessage(`已刪除項目：「${name}」。`, 'info');
+                if (await showConfirm('刪除確認', `刪除「${items[index].name}」？`)) {
+                    items.splice(index, 1); saveItems(); showMessage('已刪除', 'info');
                 }
             }
 
-            // --- Image Upload Handlers ---
-
-            imageUpload.addEventListener('change', async (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    try {
-                        showMessage('正在處理圖片，請稍候...', 'info');
-                        
-                        // 1. 創建縮圖 (低品質，小尺寸)
-                        const thumbData = await resizeImageAndConvertToBase64(file, THUMB_MAX_SIZE, THUMB_QUALITY);
-                        
-                        // 2. 創建全屏圖 (較高品質，較大尺寸)
-                        const fullData = await resizeImageAndConvertToBase64(file, FULL_IMAGE_MAX_SIZE, FULL_IMAGE_QUALITY);
-
-                        // 更新預覽和暫存數據
-                        imageThumbnail.src = thumbData;
-                        imageThumbnail.dataset.thumbBase64 = thumbData; 
-                        imageThumbnail.dataset.fullBase64 = fullData; 
-                        
-                        imagePreviewContainer.classList.remove('hidden');
-                        removeImageBtn.classList.remove('hidden');
-                        
-                        showMessage('圖片上傳並壓縮成功！', 'success');
-                    } catch (e) {
-                        console.error("Image processing failed:", e);
-                        showMessage('圖片處理失敗！', 'error');
-                    }
-                }
-            });
-
-            removeImageBtn.addEventListener('click', () => {
-                imageThumbnail.src = '';
-                imageThumbnail.dataset.thumbBase64 = ''; // 清除縮圖暫存
-                imageThumbnail.dataset.fullBase64 = ''; // 清除全圖暫存
-                imagePreviewContainer.classList.add('hidden');
-                removeImageBtn.classList.add('hidden');
-            });
-
-
-            // --- Edit Modal Functions ---
-
             function openEditModal(index) {
                 currentEditIndex = index;
-                
-                // 1. 設定 Modal 標題和重置表單
                 if (index === null) {
-                    // 新增模式
-                    modalTitle.textContent = '新增代購項目';
+                    modalTitle.textContent = '新增項目';
                     editForm.reset();
-                    // 確保圖片預覽是空的
-                    imageThumbnail.src = '';
-                    imageThumbnail.dataset.thumbBase64 = '';
-                    imageThumbnail.dataset.fullBase64 = '';
-                    imagePreviewContainer.classList.add('hidden');
-                    removeImageBtn.classList.add('hidden');
-                    document.getElementById('editPurchased').checked = false; // 預設為未購買
-                    document.getElementById('editQuantity').value = 1; // 預設數量為 1
+                    imageThumbnail.src = ''; delete imageThumbnail.dataset.thumbBase64; delete imageThumbnail.dataset.fullBase64;
+                    imagePreviewContainer.classList.add('hidden'); removeImageBtn.classList.add('hidden');
+                    document.getElementById('editQuantity').value = 1;
                 } else {
-                    // 編輯模式
-                    modalTitle.textContent = '編輯項目詳情';
+                    modalTitle.textContent = '編輯詳情';
                     const item = items[index];
-
                     document.getElementById('editName').value = item.name;
+                    document.getElementById('editRemark').value = item.remark || '';
                     document.getElementById('editFriend').value = item.friend;
                     document.getElementById('editQuantity').value = item.quantity;
-                    document.getElementById('editPurchased').checked = item.purchased;
-
-                    // Load New Fields
+                    document.getElementById('editEstimatedPrice').value = item.estimatedPrice || '';
                     document.getElementById('editCategory').value = item.category || '';
-                    // 格式化金額顯示 (加上千位符號，方便查看)
-                    document.getElementById('editEstimatedPrice').value = (item.estimatedPrice || 0).toLocaleString('en-US');
                     document.getElementById('editReferenceLink').value = item.referenceLink || '';
+                    document.getElementById('editPurchased').checked = item.purchased;
+                    
+                    // New actual fields
+                    document.getElementById('editActualQuantity').value = item.actualQuantity !== undefined ? item.actualQuantity : '';
+                    document.getElementById('editActualPrice').value = item.actualPrice !== undefined ? item.actualPrice : '';
 
-                    // Load Image (使用 thumbBase64 進行預覽)
-                    const thumbData = item.thumbBase64 || '';
-                    const fullData = item.fullBase64 || '';
-
-                    if (thumbData) {
-                        imageThumbnail.src = thumbData;
-                        imageThumbnail.dataset.thumbBase64 = thumbData; 
-                        imageThumbnail.dataset.fullBase64 = fullData; 
+                    const thumb = item.thumbBase64 || '';
+                    if (thumb) {
+                        imageThumbnail.src = thumb;
+                        imageThumbnail.dataset.thumbBase64 = thumb;
+                        imageThumbnail.dataset.fullBase64 = item.fullBase64 || '';
                         imagePreviewContainer.classList.remove('hidden');
                         removeImageBtn.classList.remove('hidden');
                     } else {
                         imageThumbnail.src = '';
-                        imageThumbnail.dataset.thumbBase64 = '';
-                        imageThumbnail.dataset.fullBase64 = '';
                         imagePreviewContainer.classList.add('hidden');
                         removeImageBtn.classList.add('hidden');
                     }
                 }
-                
-                // 重置 file input 避免重複觸發 change 事件
-                imageUpload.value = null; 
-
+                imageUpload.value = null;
                 editModal.classList.remove('hidden');
             }
 
-            closeModalBtn.addEventListener('click', () => {
-                editModal.classList.add('hidden');
-                currentEditIndex = null;
+            closeModalBtn.addEventListener('click', () => { editModal.classList.add('hidden'); currentEditIndex = null; });
+
+            imageUpload.addEventListener('change', async (e) => {
+                if (e.target.files[0]) {
+                    showMessage('處理圖片中...', 'info');
+                    const thumb = await resizeImageAndConvertToBase64(e.target.files[0], THUMB_MAX_SIZE, THUMB_QUALITY);
+                    const full = await resizeImageAndConvertToBase64(e.target.files[0], FULL_IMAGE_MAX_SIZE, FULL_IMAGE_QUALITY);
+                    imageThumbnail.src = thumb;
+                    imageThumbnail.dataset.thumbBase64 = thumb;
+                    imageThumbnail.dataset.fullBase64 = full;
+                    imagePreviewContainer.classList.remove('hidden'); removeImageBtn.classList.remove('hidden');
+                    showMessage('圖片已準備', 'success');
+                }
             });
 
-            editForm.addEventListener('submit', (event) => {
-                event.preventDefault();
+            removeImageBtn.addEventListener('click', () => {
+                imageThumbnail.src = ''; delete imageThumbnail.dataset.thumbBase64; delete imageThumbnail.dataset.fullBase64;
+                imagePreviewContainer.classList.add('hidden'); removeImageBtn.classList.add('hidden');
+            });
 
-                const quantityValue = parseInt(document.getElementById('editQuantity').value);
-                const rawPrice = document.getElementById('editEstimatedPrice').value.replace(/,/g, '');
-                const priceValue = parseInt(rawPrice) || 0; // 允許為 0 或空
+            editForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const qty = parseInt(document.getElementById('editQuantity').value);
+                const estPriceRaw = document.getElementById('editEstimatedPrice').value.replace(/,/g, '');
+                const estPrice = parseInt(estPriceRaw) || 0;
 
-                if (isNaN(quantityValue) || quantityValue <= 0 || isNaN(priceValue)) {
-                    showMessage('購買量必須是有效的正整數，金額必須是有效數字。', 'error');
-                    return;
-                }
-                
-                // 構造基礎項目數據
-                const newItemData = {
+                if (isNaN(qty) || qty <= 0) { showMessage('數量錯誤', 'error'); return; }
+
+                const newData = {
                     name: document.getElementById('editName').value.trim(),
+                    remark: document.getElementById('editRemark').value.trim(),
                     friend: document.getElementById('editFriend').value.trim(),
-                    quantity: quantityValue,
-                    purchased: document.getElementById('editPurchased').checked,
+                    quantity: qty,
+                    estimatedPrice: estPrice,
                     category: document.getElementById('editCategory').value.trim() || '其他',
-                    estimatedPrice: priceValue,
                     referenceLink: document.getElementById('editReferenceLink').value.trim(),
+                    purchased: document.getElementById('editPurchased').checked,
+                    // Actuals
+                    actualQuantity: document.getElementById('editActualQuantity').value,
+                    actualPrice: document.getElementById('editActualPrice').value,
+                    // Images
                     thumbBase64: imageThumbnail.dataset.thumbBase64 || '',
-                    fullBase64: imageThumbnail.dataset.fullBase64 || '',
+                    fullBase64: imageThumbnail.dataset.fullBase64 || ''
                 };
 
-
                 if (currentEditIndex !== null) {
-                    // --- 編輯模式 ---
-                    items[currentEditIndex] = {
-                        ...items[currentEditIndex], // 保留 id 和 timestamp
-                        ...newItemData 
-                    };
-                    delete items[currentEditIndex].imageBase64; // 清理舊欄位
-                    showMessage('項目已成功更新！', 'success');
-
+                    items[currentEditIndex] = { ...items[currentEditIndex], ...newData };
+                    delete items[currentEditIndex].imageBase64;
                 } else {
-                    // --- 新增模式 ---
-                    items.push({
-                        ...newItemData,
-                        id: Date.now() + Math.random(), 
-                        timestamp: Date.now(), // 新增項目給予當前時間戳記
-                    });
-                    showMessage('項目已成功新增！', 'success');
+                    items.push({ ...newData, id: Date.now() + Math.random(), timestamp: Date.now() });
                 }
                 
                 saveItems();
                 editModal.classList.add('hidden');
                 currentEditIndex = null;
+                showMessage('已儲存', 'success');
             });
 
-            // Initial Load: 首次載入時也計算總金額
-            calculateAndDisplayTotal();
+            // Initial
+            updateFilterOptions();
             renderItems();
+            calculateAndDisplayTotals();
         });
     </script>
 </body>
